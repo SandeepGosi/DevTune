@@ -2,16 +2,17 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.devtune"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.devtune"
-        minSdk = 23
-        targetSdk = 36
+        minSdk = 24
+        targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
 
