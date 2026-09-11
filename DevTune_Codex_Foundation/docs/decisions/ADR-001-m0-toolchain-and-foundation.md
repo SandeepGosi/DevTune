@@ -10,7 +10,7 @@ M0 needs a current, stable, Play-ready Android build foundation without implemen
 
 ## Decision
 
-- Use Android Gradle Plugin 9.2.0, Gradle 9.4.1, and JDK 17 compatibility.
+- Use Android Gradle Plugin 9.4.0, Gradle 9.6.0, and JDK 17 compatibility.
 - Use compile and target SDK 36 (Android 16) to satisfy the current Google Play requirement for new mobile apps. Use min SDK 23, which also matches the current minimum of modern AndroidX Activity APIs.
 - Use Kotlin through AGP 9 built-in Kotlin support, with KSP for Hilt code generation.
 - Use Kotlin 2.4.20 with KSP 2.4.20-2.0.4. AGP 9's built-in Kotlin is retained; Kotlin Gradle Plugin 2.4.20 is added to the buildscript classpath as the AGP 9 migration guidance prescribes when using a version newer than AGP's bundled KGP.
@@ -23,7 +23,7 @@ The app starts with a small Material 3 Compose surface, Hilt entry points, navig
 
 ## Sources
 
-- Android Gradle Plugin 9.2 compatibility: https://developer.android.com/build/releases/agp-9-2-0-release-notes
+- Android Gradle Plugin compatibility: https://developer.android.com/build/releases/about-agp
 - Kotlin/AGP compatibility: https://developer.android.com/build/kotlin-support
 - Android Studio releases: https://developer.android.com/studio/releases
 - Compose BOM: https://developer.android.com/develop/ui/compose/bom
