@@ -58,39 +58,16 @@ private fun HomeContent(paddingValues: PaddingValues) {
             DevTuneSection(title = "System Status") {
                 SettingRow(
                     title = "Developer Options",
-                    description = "Global system developer mode status",
+                    description = "Shortcut to system developer settings",
                     icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                    trailingContent = { AvailableIndicator() }
+                    trailingContent = { AvailableIndicator() },
+                    onClick = { /* TODO: Open Developer Options in M3 */ }
                 )
                 ValueRow(
-                    label = "Display Density",
+                    label = "Logical Display Density",
                     value = "420 DPI",
-                    supportingText = "Default density for this hardware"
+                    supportingText = "Current system configuration"
                 )
-            }
-        }
-
-        item {
-            DevTuneSection(title = "Foundation Demo") {
-                SwitchSettingRow(
-                    title = "Demonstration Toggle",
-                    description = "This represents a future system control",
-                    checked = true,
-                    onCheckedChange = { /* Placeholder */ }
-                )
-                SettingRow(
-                    title = "Secondary Action",
-                    description = "A standard clickable setting row",
-                    onClick = { /* Placeholder */ }
-                )
-            }
-        }
-
-        item {
-            DevTuneSection(title = "Technical Values") {
-                ValueRow(label = "Window Scale", value = "1.0x")
-                ValueRow(label = "Transition Scale", value = "0.5x")
-                ValueRow(label = "Animator Scale", value = "0.0x")
             }
         }
 
@@ -100,19 +77,11 @@ private fun HomeContent(paddingValues: PaddingValues) {
                     .fillMaxWidth()
                     .padding(DevTuneTheme.spacing.screenPadding)
             ) {
-                Button(
-                    onClick = { /* Placeholder */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Primary Action")
-                }
-                Spacer(modifier = Modifier.height(DevTuneTheme.spacing.small))
-                OutlinedButton(
-                    onClick = { /* Placeholder */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Secondary Action")
-                }
+                Text(
+                    text = "DevTune helps you understand and manage Android developer and system preferences.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
