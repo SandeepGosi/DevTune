@@ -16,13 +16,16 @@ import com.devtune.ui.components.*
 import com.devtune.ui.theme.DevTuneTheme
 
 @Composable
-fun HomeRoute(viewModel: HomeViewModel = hiltViewModel()) {
-    HomeScreen()
+fun HomeRoute(
+    onNavigateToSettings: () -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
+    HomeScreen(onNavigateToSettings = onNavigateToSettings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onNavigateToSettings: () -> Unit) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
@@ -32,7 +35,7 @@ fun HomeScreen() {
                 title = stringResource(R.string.app_name),
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    IconButton(onClick = { /* TODO: Open settings */ }) {
+                    IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }

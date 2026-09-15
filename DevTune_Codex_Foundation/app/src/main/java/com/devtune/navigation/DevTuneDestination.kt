@@ -1,9 +1,14 @@
 package com.devtune.navigation
 
-sealed interface DevTuneDestination {
-    val route: String
+import kotlinx.serialization.Serializable
 
-    data object Home : DevTuneDestination {
-        override val route = "home"
-    }
+sealed interface DevTuneDestination {
+    @Serializable
+    data object Onboarding : DevTuneDestination
+
+    @Serializable
+    data object Home : DevTuneDestination
+
+    @Serializable
+    data object Settings : DevTuneDestination
 }

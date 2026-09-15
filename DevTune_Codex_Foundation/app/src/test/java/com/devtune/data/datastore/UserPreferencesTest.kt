@@ -7,9 +7,14 @@ import org.junit.Test
 class UserPreferencesTest {
     @Test
     fun `default preference model represents system theme and dynamic color`() {
-        val preferences = UserPreferences(themeMode = ThemeMode.SYSTEM.name, useDynamicColor = true)
+        val preferences = UserPreferences(
+            themeMode = ThemeMode.SYSTEM.name,
+            useDynamicColor = true,
+            isOnboardingCompleted = false
+        )
 
         assertEquals(ThemeMode.SYSTEM.name, preferences.themeMode)
         assertEquals(true, preferences.useDynamicColor)
+        assertEquals(false, preferences.isOnboardingCompleted)
     }
 }

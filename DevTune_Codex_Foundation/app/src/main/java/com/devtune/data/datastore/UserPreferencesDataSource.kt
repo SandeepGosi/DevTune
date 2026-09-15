@@ -22,6 +22,7 @@ class UserPreferencesDataSource @Inject constructor(
         UserPreferences(
             themeMode = values[ThemeModeKey] ?: ThemeMode.SYSTEM.name,
             useDynamicColor = values[DynamicColorKey] ?: true,
+            isOnboardingCompleted = values[OnboardingCompletedKey] ?: false,
         )
     }
 
@@ -29,13 +30,19 @@ class UserPreferencesDataSource @Inject constructor(
         context.dataStore.edit { it[ThemeModeKey] = themeMode }
     }
 
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { it[OnboardingCompletedKey] = completed }
+    }
+
     companion object {
         private val ThemeModeKey = stringPreferencesKey("theme_mode")
         private val DynamicColorKey = booleanPreferencesKey("dynamic_color")
+        private val OnboardingCompletedKey = booleanPreferencesKey("onboarding_completed")
     }
 }
 
 data class UserPreferences(
     val themeMode: String,
     val useDynamicColor: Boolean,
+    val isOnboardingCompleted: Boolean,
 )

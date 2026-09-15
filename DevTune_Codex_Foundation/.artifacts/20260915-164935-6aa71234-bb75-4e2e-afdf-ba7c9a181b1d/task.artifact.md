@@ -1,0 +1,21 @@
+# Task: M2 — Navigation & Onboarding
+
+- [/] M2 Research & Planning
+	- [x] Audit existing navigation and DataStore
+	- [x] Create implementation plan
+- [ ] M2 Implementation
+	- [ ] Add Serialization dependencies
+	- [ ] Update Data Layer (DataStore & Repository)
+	- [ ] Create Domain Layer (Models & Use Cases)
+	- [ ] Refactor Navigation to Type-Safe
+	- [ ] Implement Onboarding UI & ViewModel
+	- [ ] Implement Settings Screen (Shell)
+	- [ ] Refine Home Screen
+- [ ] M2 Verification
+	- [ ] Run Unit Tests
+	- [ ] Run UI Tests
+	- [ ] Run Lint & Static Analysis
+	- [ ] Manual Verification
+- [ ] M2 Final Review & Documentation
+	- [ ] Create ADR for Navigation Decision
+	- [ ] Final Commit & Report
