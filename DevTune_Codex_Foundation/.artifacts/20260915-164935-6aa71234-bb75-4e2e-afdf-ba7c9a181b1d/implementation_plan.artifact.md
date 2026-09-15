@@ -1,102 +1,90 @@
-# Implementation Plan - M2: Navigation & Onboarding
+# Implementation Plan - M3: Platform Capabilities
 
-Establish the production-ready navigation architecture and first-run onboarding experience for DevTune.
+Establish the foundation for real-world Android platform access using capability-driven design.
 
-## User Review Required
+## Platform Research Findings
 
-> [!NOTE]
-> I am adopting the new Type-Safe Navigation Compose (available in Navigation 2.10.1) which uses Kotlin Serialization. This requires adding the `kotlinx.serialization` plugin.
+### Developer Options
+*   **Status Detection:** Can be read via `Settings.Global.getInt(contentResolver, "development_settings_enabled", 0)`.
+*   **Navigation:** Official Intent action is `android.settings.APPLICATION_DEVELOPMENT_SETTINGS`.
+*   **Control:** Third-party apps **cannot** enable/disable Developer Options programmatically (requires `WRITE_SECURE_SETTINGS`, a signature/privileged permission).
+*   **Compatibility:** Intent is standard but some OEMs (e.g., Xiaomi) may have intermediate screens or non-standard paths.
+
+### Animation Settings
+*   **Keys:** `WINDOW_ANIMATION_SCALE`, `TRANSITION_ANIMATION_SCALE`, `ANIMATOR_DURATION_SCALE`.
+*   **Read:** Normal apps **can** read these values using `Settings.Global.getFloat`.
+*   **Write:** Normal apps **cannot** write these values (requires `WRITE_SECURE_SETTINGS`).
+*   **State:** Values are floats (1.0 = 1x, 0.5 = 0.5x, 0.0 = Off).
+
+### Display Density
+*   **API:** `resources.configuration.densityDpi` or `context.display.getMetrics`.
+*   **Value:** Represents the logical density bucket (DPI), not necessarily the exact physical hardware DPI.
+*   **Read:** Standard public API, no special permissions.
 
 ## Proposed Changes
 
-### Build Configuration
+### Domain Layer
 
-#### [libs.versions.toml](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/gradle/libs.versions.toml)
-- Add `serialization` version and `kotlinx-serialization-json` library.
-- Add `kotlin-serialization` plugin.
+#### [PlatformCapability.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/PlatformCapability.kt)
+*   Ensure `CapabilityState` and `PlatformCapability` are robust.
 
-#### [build.gradle.kts (Project)](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/build.gradle.kts)
-- Apply `kotlin-serialization` plugin (apply false).
+#### [NEW] [AnimationSettings.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/AnimationSettings.kt)
+*   Data class for animation scales.
 
-#### [app/build.gradle.kts](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/build.gradle.kts)
-- Apply `kotlin-serialization` plugin.
-- Add `kotlinx-serialization-json` dependency.
+#### [NEW] [PlatformCapabilitiesUseCase.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/PlatformCapabilitiesUseCase.kt)
+*   `GetCapabilityStateUseCase`
+*   `GetAnimationSettingsUseCase`
+*   `GetDisplayDensityUseCase`
+*   `OpenDeveloperOptionsUseCase`
+
+---
+
+### Platform Layer
+
+#### [SystemControlProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/SystemControlProvider.kt)
+*   Update interface with methods for reading status and launching intents.
+
+#### [NEW] [AndroidSystemControlProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/AndroidSystemControlProvider.kt)
+*   Implementation using `ContentResolver`, `Settings.Global`, and `Resources`.
 
 ---
 
 ### Data Layer
 
-#### [UserPreferencesDataSource.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/datastore/UserPreferencesDataSource.kt)
-- Add `isOnboardingCompleted` to `UserPreferences` data class.
-- Add `setOnboardingCompleted` method.
-
-#### [NEW] [UserPreferencesRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/UserPreferencesRepositoryImpl.kt)
-- Implementation of the domain repository using `UserPreferencesDataSource`.
+#### [NEW] [PlatformRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/PlatformRepository.kt) / [PlatformRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/PlatformRepositoryImpl.kt)
+*   Bridge between domain use cases and the platform provider.
 
 ---
 
-### Domain Layer
+### Presentation Layer
 
-#### [NEW] [UserPreferences.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/UserPreferences.kt)
-- Domain model for user preferences.
-
-#### [NEW] [UserPreferencesRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/UserPreferencesRepository.kt)
-- Repository interface.
-
-#### [NEW] [OnboardingUseCases.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/OnboardingUseCases.kt)
-- `GetOnboardingStatusUseCase`
-- `CompleteOnboardingUseCase`
-
----
-
-### Navigation
-
-#### [DevTuneDestination.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/navigation/DevTuneDestination.kt)
-- Refactor to use `@Serializable` objects for type-safe navigation.
-
-#### [DevTuneNavHost.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/navigation/DevTuneNavHost.kt)
-- Update to use type-safe navigation and include `Onboarding` and `Settings` routes.
-
----
-
-### UI Layer
-
-#### [NEW] [OnboardingScreen.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/onboarding/OnboardingScreen.kt)
-- 3-step onboarding flow.
-
-#### [NEW] [OnboardingViewModel.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/onboarding/OnboardingViewModel.kt)
-- Handles onboarding state and completion.
+#### [HomeViewModel.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeViewModel.kt)
+*   Expose `HomeUiState` containing real platform data.
+*   Handle the "Open Developer Options" event.
 
 #### [HomeScreen.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeScreen.kt)
-- Refine layout and add navigation to Settings.
-
-#### [NEW] [SettingsScreen.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/settings/SettingsScreen.kt)
-- Basic shell for future settings.
+*   Update to observe `HomeUiState` and display real values.
+*   Connect "Developer Options" row to the ViewModel action.
 
 ---
 
 ### Dependency Injection
 
-#### [NEW] [RepositoryModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/RepositoryModule.kt)
-- Hilt module to bind `UserPreferencesRepository`.
+#### [NEW] [PlatformModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/PlatformModule.kt)
+*   Hilt module to provide `SystemControlProvider`.
 
 ## Verification Plan
 
 ### Automated Tests
-- **Unit Tests**:
-    - `UserPreferencesRepositoryTest`: Verify DataStore interactions.
-    - `OnboardingViewModelTest`: Verify state transitions and completion logic.
-- **UI Tests**:
-    - `OnboardingFlowTest`: Verify navigation from Onboarding to Home.
-    - `NavigationTest`: Verify navigation between Home and Settings.
-
-Commands:
-- `.\gradlew.bat testDebugUnitTest`
-- `.\gradlew.bat connectedDebugAndroidTest` (if device available)
+*   **Unit Tests:**
+    *   `AndroidSystemControlProviderTest`: Verify mapping of `Settings.Global` values to domain models.
+    *   `HomeViewModelTest`: Verify state updates when platform data changes.
+*   **Instrumentation Tests:**
+    *   `PlatformCapabilityTest`: Verify reading real values from the emulator.
 
 ### Manual Verification
-- Fresh install: Verify onboarding appears.
-- Complete onboarding: Verify navigation to Home and persistence (onboarding doesn't reappear on restart).
-- Navigate to Settings and back.
-- Verify Dark mode and Dynamic color in onboarding.
-- Accessibility: Use TalkBack on Onboarding screens.
+*   Verify Home screen displays correct logical DPI (420 on emulator).
+*   Verify Home screen displays correct Animation scales.
+*   Verify "Developer Options" row correctly shows "Enabled" (if enabled on emulator).
+*   Clicking "Developer Options" opens the system settings screen.
+*   Verify behavior when a setting is missing (null value handling).

@@ -1,21 +1,20 @@
-# Task: M2 — Navigation & Onboarding
+# Task: M3 — Platform Capabilities
 
-- [/] M2 Research & Planning
-	- [x] Audit existing navigation and DataStore
+- [/] M3 Research & Planning
+	- [x] Investigate Developer Options APIs
+	- [x] Investigate Animation Settings APIs
+	- [x] Investigate Display Density APIs
 	- [x] Create implementation plan
-- [ ] M2 Implementation
-	- [ ] Add Serialization dependencies
-	- [ ] Update Data Layer (DataStore & Repository)
-	- [ ] Create Domain Layer (Models & Use Cases)
-	- [ ] Refactor Navigation to Type-Safe
-	- [ ] Implement Onboarding UI & ViewModel
-	- [ ] Implement Settings Screen (Shell)
-	- [ ] Refine Home Screen
-- [ ] M2 Verification
+- [ ] M3 Implementation
+	- [ ] Update Domain Layer (Models & Use Cases)
+	- [ ] Implement Platform Layer (AndroidSystemControlProvider)
+	- [ ] Implement Data Layer (PlatformRepository)
+	- [ ] Update Presentation Layer (HomeViewModel & HomeScreen)
+	- [ ] Setup Dependency Injection (PlatformModule)
+- [ ] M3 Verification
 	- [ ] Run Unit Tests
-	- [ ] Run UI Tests
-	- [ ] Run Lint & Static Analysis
-	- [ ] Manual Verification
-- [ ] M2 Final Review & Documentation
-	- [ ] Create ADR for Navigation Decision
+	- [ ] Run Instrumentation Tests
+	- [ ] Manual Verification (Emulator)
+- [ ] M3 Final Review & Documentation
+	- [ ] Create ADR for Platform Architecture
 	- [ ] Final Commit & Report

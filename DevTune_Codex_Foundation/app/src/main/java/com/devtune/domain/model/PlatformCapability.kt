@@ -20,3 +20,10 @@ enum class CapabilityState {
     RESTRICTED,
     UNKNOWN,
 }
+
+data class CapabilityInfo(
+    val capability: PlatformCapability,
+    val state: CapabilityState,
+    val diagnosticMessage: String? = null
+)
+
