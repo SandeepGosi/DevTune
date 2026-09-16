@@ -14,5 +14,6 @@ interface SystemControlProvider {
     fun getDisplayDensityDpi(): Int
     fun openDeveloperOptions(): Boolean
     fun openDeviceInfoSettings(): Boolean
+    fun openDisplaySettings(): Boolean
 }
 

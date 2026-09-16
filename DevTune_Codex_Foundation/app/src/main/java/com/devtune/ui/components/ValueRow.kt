@@ -15,11 +15,14 @@ fun ValueRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    supportingText: String? = null
+    supportingText: String? = null,
+    onClick: (() -> Unit)? = null
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface,
+        onClick = onClick ?: {},
+        enabled = onClick != null
     ) {
         Column(
             modifier = Modifier

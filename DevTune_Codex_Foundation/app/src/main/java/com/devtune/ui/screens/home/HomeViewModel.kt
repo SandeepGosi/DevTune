@@ -12,12 +12,15 @@ import com.devtune.domain.usecase.GetCapabilityStateUseCase
 import com.devtune.domain.usecase.GetSystemStateUseCase
 import com.devtune.domain.usecase.OpenDeveloperOptionsUseCase
 import com.devtune.domain.usecase.OpenDeviceInfoSettingsUseCase
+import com.devtune.domain.usecase.OpenDisplaySettingsUseCase
 import kotlinx.coroutines.flow.*
 
 data class HomeUiState(
     val systemState: SystemState? = null,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
     val showDevOptionsInstructions: Boolean = false,
+    val showAnimationInstructions: Boolean = false,
+    val showDensityInstructions: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -26,7 +29,8 @@ class HomeViewModel @Inject constructor(
     getSystemStateUseCase: GetSystemStateUseCase,
     private val getCapabilityStateUseCase: GetCapabilityStateUseCase,
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase,
-    private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase
+    private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase,
+    private val openDisplaySettingsUseCase: OpenDisplaySettingsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -54,12 +58,34 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun onAnimationSettingsClick() {
+        _uiState.update { it.copy(showAnimationInstructions = true) }
+    }
+
+    fun onDensitySettingsClick() {
+        _uiState.update { it.copy(showDensityInstructions = true) }
+    }
+
     fun onDismissInstructions() {
-        _uiState.update { it.copy(showDevOptionsInstructions = false) }
+        _uiState.update { it.copy(
+            showDevOptionsInstructions = false,
+            showAnimationInstructions = false,
+            showDensityInstructions = false
+        ) }
     }
 
     fun onOpenDeviceInfoClick() {
         openDeviceInfoSettingsUseCase()
+        onDismissInstructions()
+    }
+
+    fun onOpenDeveloperOptionsClick() {
+        openDeveloperOptionsUseCase()
+        onDismissInstructions()
+    }
+
+    fun onOpenDisplaySettingsClick() {
+        openDisplaySettingsUseCase()
         onDismissInstructions()
     }
 }

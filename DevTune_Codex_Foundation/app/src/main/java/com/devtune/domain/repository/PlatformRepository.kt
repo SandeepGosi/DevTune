@@ -10,4 +10,5 @@ interface PlatformRepository {
     fun getSystemState(): Flow<SystemState>
     fun openDeveloperOptions(): Boolean
     fun openDeviceInfoSettings(): Boolean
+    fun openDisplaySettings(): Boolean
 }

@@ -33,3 +33,10 @@ class OpenDeviceInfoSettingsUseCase @Inject constructor(
     operator fun invoke(): Boolean = repository.openDeviceInfoSettings()
 }
 
+class OpenDisplaySettingsUseCase @Inject constructor(
+    private val repository: PlatformRepository
+) {
+    operator fun invoke(): Boolean = repository.openDisplaySettings()
+}
+
+

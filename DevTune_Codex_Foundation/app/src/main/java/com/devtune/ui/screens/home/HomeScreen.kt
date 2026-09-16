@@ -32,8 +32,12 @@ fun HomeRoute(
         uiState = uiState,
         onNavigateToSettings = onNavigateToSettings,
         onOpenDevOptions = viewModel::onDeveloperOptionsClick,
+        onAnimationSettingsClick = viewModel::onAnimationSettingsClick,
+        onDensitySettingsClick = viewModel::onDensitySettingsClick,
         onDismissInstructions = viewModel::onDismissInstructions,
-        onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick
+        onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick,
+        onConfirmOpenDeveloperOptions = viewModel::onOpenDeveloperOptionsClick,
+        onConfirmOpenDisplaySettings = viewModel::onOpenDisplaySettingsClick
     )
 }
 
@@ -43,8 +47,12 @@ fun HomeScreen(
     uiState: HomeUiState,
     onNavigateToSettings: () -> Unit,
     onOpenDevOptions: () -> Unit,
+    onAnimationSettingsClick: () -> Unit,
+    onDensitySettingsClick: () -> Unit,
     onDismissInstructions: () -> Unit,
-    onConfirmOpenDeviceInfo: () -> Unit
+    onConfirmOpenDeviceInfo: () -> Unit,
+    onConfirmOpenDeveloperOptions: () -> Unit,
+    onConfirmOpenDisplaySettings: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -52,6 +60,20 @@ fun HomeScreen(
         DeveloperOptionsInstructionDialog(
             onDismiss = onDismissInstructions,
             onConfirm = onConfirmOpenDeviceInfo
+        )
+    }
+
+    if (uiState.showAnimationInstructions) {
+        AnimationSettingsInstructionDialog(
+            onDismiss = onDismissInstructions,
+            onConfirm = onConfirmOpenDeveloperOptions
+        )
+    }
+
+    if (uiState.showDensityInstructions) {
+        DensitySettingsInstructionDialog(
+            onDismiss = onDismissInstructions,
+            onConfirm = onConfirmOpenDisplaySettings
         )
     }
 
@@ -78,7 +100,9 @@ fun HomeScreen(
             HomeContent(
                 uiState = uiState,
                 paddingValues = paddingValues,
-                onOpenDevOptions = onOpenDevOptions
+                onOpenDevOptions = onOpenDevOptions,
+                onAnimationSettingsClick = onAnimationSettingsClick,
+                onDensitySettingsClick = onDensitySettingsClick
             )
         }
     }
@@ -88,7 +112,9 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeUiState,
     paddingValues: PaddingValues,
-    onOpenDevOptions: () -> Unit
+    onOpenDevOptions: () -> Unit,
+    onAnimationSettingsClick: () -> Unit,
+    onDensitySettingsClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -112,15 +138,16 @@ private fun HomeContent(
                         statusText = if (state.isDeveloperOptionsEnabled) "Enabled" else "Disabled",
                         statusColor = if (state.isDeveloperOptionsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         icon = Icons.Default.Info,
-                        onClick = if (uiState.canOpenDevOptions == CapabilityState.AVAILABLE) onOpenDevOptions else null,
-                        supportingText = if (uiState.canOpenDevOptions == CapabilityState.AVAILABLE) 
-                            "Tap to open system settings" else "Shortcut unavailable on this device"
+                        onClick = onOpenDevOptions,
+                        supportingText = if (state.isDeveloperOptionsEnabled) 
+                            "Tap to open system settings" else "Tap to learn how to enable"
                     )
                     
                     ValueRow(
                         label = "Logical Display Density",
                         value = "${state.displayDensityDpi} DPI",
-                        supportingText = "Current system configuration"
+                        supportingText = "Current system configuration",
+                        onClick = onDensitySettingsClick
                     )
                 }
             }
@@ -129,9 +156,21 @@ private fun HomeContent(
         item {
             uiState.systemState?.animationSettings?.let { anim ->
                 DevTuneSection(title = "Animation Scales") {
-                    ValueRow(label = "Window Animation", value = "${anim.windowScale}x")
-                    ValueRow(label = "Transition Animation", value = "${anim.transitionScale}x")
-                    ValueRow(label = "Animator Duration", value = "${anim.animatorDurationScale}x")
+                    ValueRow(
+                        label = "Window Animation",
+                        value = "${anim.windowScale}x",
+                        onClick = onAnimationSettingsClick
+                    )
+                    ValueRow(
+                        label = "Transition Animation",
+                        value = "${anim.transitionScale}x",
+                        onClick = onAnimationSettingsClick
+                    )
+                    ValueRow(
+                        label = "Animator Duration",
+                        value = "${anim.animatorDurationScale}x",
+                        onClick = onAnimationSettingsClick
+                    )
                     
                     Box(modifier = Modifier.padding(DevTuneTheme.spacing.medium)) {
                         Text(
@@ -194,7 +233,65 @@ private fun BrandingHeader() {
 }
 
 @Composable
+private fun AnimationSettingsInstructionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Animation Settings") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
+                Text("Android does not provide a public direct link to these individual settings on this device.")
+                Text("You can find them manually in Developer Options:")
+                Text("• Window animation scale", style = MaterialTheme.typography.bodySmall)
+                Text("• Transition animation scale", style = MaterialTheme.typography.bodySmall)
+                Text("• Animator duration scale", style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Open Developer Options")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DensitySettingsInstructionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Display Density") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
+                Text("Android does not provide a public direct link to this specific setting on this device.")
+                Text("It is typically found in Display settings as 'Display size' or in Developer Options as 'Smallest width'.")
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Open Display Settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 private fun DeveloperOptionsInstructionDialog(
+
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {

@@ -71,6 +71,13 @@ class AndroidSystemControlProvider @Inject constructor(
         return safeStartActivity(intent)
     }
 
+    override fun openDisplaySettings(): Boolean {
+        val intent = Intent(Settings.ACTION_DISPLAY_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        return safeStartActivity(intent)
+    }
+
     private fun safeStartActivity(intent: Intent): Boolean {
         return try {
             if (intent.resolveActivity(context.packageManager) != null) {
