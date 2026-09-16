@@ -61,9 +61,24 @@ class AndroidSystemControlProvider @Inject constructor(
         val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
+        return safeStartActivity(intent)
+    }
+
+    override fun openDeviceInfoSettings(): Boolean {
+        val intent = Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        return safeStartActivity(intent)
+    }
+
+    private fun safeStartActivity(intent: Intent): Boolean {
         return try {
-            context.startActivity(intent)
-            true
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+                true
+            } else {
+                false
+            }
         } catch (e: Exception) {
             false
         }

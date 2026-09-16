@@ -31,7 +31,9 @@ fun HomeRoute(
     HomeScreen(
         uiState = uiState,
         onNavigateToSettings = onNavigateToSettings,
-        onOpenDevOptions = viewModel::openDeveloperOptions
+        onOpenDevOptions = viewModel::onDeveloperOptionsClick,
+        onDismissInstructions = viewModel::onDismissInstructions,
+        onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick
     )
 }
 
@@ -40,11 +42,21 @@ fun HomeRoute(
 fun HomeScreen(
     uiState: HomeUiState,
     onNavigateToSettings: () -> Unit,
-    onOpenDevOptions: () -> Unit
+    onOpenDevOptions: () -> Unit,
+    onDismissInstructions: () -> Unit,
+    onConfirmOpenDeviceInfo: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
+    if (uiState.showDevOptionsInstructions) {
+        DeveloperOptionsInstructionDialog(
+            onDismiss = onDismissInstructions,
+            onConfirm = onConfirmOpenDeviceInfo
+        )
+    }
+
     Scaffold(
+
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DevTuneTopAppBar(
@@ -182,7 +194,38 @@ private fun BrandingHeader() {
 }
 
 @Composable
+private fun DeveloperOptionsInstructionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Enable Developer Options") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
+                Text("Android requires you to enable Developer Options manually.")
+                Text("1. Tap 'Go to Settings' below.", style = MaterialTheme.typography.bodySmall)
+                Text("2. Find 'Build number' (usually in About or Software information).", style = MaterialTheme.typography.bodySmall)
+                Text("3. Tap 'Build number' 7 times.", style = MaterialTheme.typography.bodySmall)
+                Text("4. Return to DevTune.", style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Go to Settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 private fun StatusRow(
+
     title: String,
     statusText: String,
     statusColor: androidx.compose.ui.graphics.Color,

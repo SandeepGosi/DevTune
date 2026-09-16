@@ -27,12 +27,11 @@ class PlatformCapabilitiesUseCaseTest {
     }
 
     @Test
-    fun `GetSystemStateUseCase returns flow from repository`() = runTest {
-        val useCase = GetSystemStateUseCase(repository)
-        val expectedState = SystemState(isDeveloperOptionsEnabled = true, displayDensityDpi = 420)
-        whenever(repository.getSystemState()).thenReturn(flowOf(expectedState))
+    fun `OpenDeviceInfoSettingsUseCase calls repository`() {
+        val useCase = OpenDeviceInfoSettingsUseCase(repository)
+        whenever(repository.openDeviceInfoSettings()).thenReturn(true)
 
-        val result = useCase().first()
-        assertEquals(expectedState, result)
+        val result = useCase()
+        assertEquals(true, result)
     }
 }

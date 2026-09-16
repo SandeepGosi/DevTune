@@ -26,3 +26,10 @@ class OpenDeveloperOptionsUseCase @Inject constructor(
 ) {
     operator fun invoke(): Boolean = repository.openDeveloperOptions()
 }
+
+class OpenDeviceInfoSettingsUseCase @Inject constructor(
+    private val repository: PlatformRepository
+) {
+    operator fun invoke(): Boolean = repository.openDeviceInfoSettings()
+}
+

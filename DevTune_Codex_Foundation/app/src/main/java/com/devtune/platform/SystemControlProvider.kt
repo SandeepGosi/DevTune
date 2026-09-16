@@ -13,5 +13,6 @@ interface SystemControlProvider {
     fun getAnimationSettings(): AnimationSettings?
     fun getDisplayDensityDpi(): Int
     fun openDeveloperOptions(): Boolean
+    fun openDeviceInfoSettings(): Boolean
 }
 

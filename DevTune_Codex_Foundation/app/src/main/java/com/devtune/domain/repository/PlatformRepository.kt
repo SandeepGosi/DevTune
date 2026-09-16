@@ -9,4 +9,5 @@ interface PlatformRepository {
     fun getCapabilityState(capability: PlatformCapability): CapabilityState
     fun getSystemState(): Flow<SystemState>
     fun openDeveloperOptions(): Boolean
+    fun openDeviceInfoSettings(): Boolean
 }

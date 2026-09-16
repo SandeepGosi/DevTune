@@ -36,4 +36,8 @@ class PlatformRepositoryImpl @Inject constructor(
     override fun openDeveloperOptions(): Boolean {
         return systemControlProvider.openDeveloperOptions()
     }
+
+    override fun openDeviceInfoSettings(): Boolean {
+        return systemControlProvider.openDeviceInfoSettings()
+    }
 }
