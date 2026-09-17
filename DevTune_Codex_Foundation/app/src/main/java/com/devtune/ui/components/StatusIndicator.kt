@@ -16,16 +16,16 @@ import androidx.compose.ui.unit.dp
 import com.devtune.ui.theme.DevTuneTheme
 
 @Composable
-fun StatusIndicator(
+fun StatusBadge(
     text: String,
     color: Color,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        color = color.copy(alpha = 0.12f),
-        shape = MaterialTheme.shapes.extraSmall,
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f))
+        color = color.copy(alpha = 0.15f),
+        shape = MaterialTheme.shapes.small,
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.3f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.small, vertical = 2.dp),
@@ -39,12 +39,38 @@ fun StatusIndicator(
                     .background(color)
             )
             Text(
-                text = text,
+                text = text.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = color,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Black,
+                letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified
             )
         }
+    }
+}
+
+@Composable
+fun StatusIndicator(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

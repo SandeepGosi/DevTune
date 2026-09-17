@@ -2,10 +2,10 @@ package com.devtune.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Premium Indigo/Purple Tonal Foundation
+// Final M3.5 Immersive Indigo Palette
 
-// Light Theme
-val md_theme_light_primary = Color(0xFF4A4D8C) // Deep Indigo
+// Light Theme (Clean & Professional)
+val md_theme_light_primary = Color(0xFF4A4D8C)
 val md_theme_light_onPrimary = Color(0xFFFFFFFF)
 val md_theme_light_primaryContainer = Color(0xFFE1E0FF)
 val md_theme_light_onPrimaryContainer = Color(0xFF04063E)
@@ -35,8 +35,8 @@ val md_theme_light_surfaceTint = Color(0xFF4A4D8C)
 val md_theme_light_outlineVariant = Color(0xFFC8C5D0)
 val md_theme_light_scrim = Color(0xFF000000)
 
-// Dark Theme (Primary Aesthetic)
-val md_theme_dark_primary = Color(0xFFC1C1FF) // Vibrant Indigo
+// Dark Theme (Premium & Immersive)
+val md_theme_dark_primary = Color(0xFFC1C1FF)
 val md_theme_dark_onPrimary = Color(0xFF1A1C5B)
 val md_theme_dark_primaryContainer = Color(0xFF323473)
 val md_theme_dark_onPrimaryContainer = Color(0xFFE1E0FF)
@@ -53,13 +53,13 @@ val md_theme_dark_onError = Color(0xFF690005)
 val md_theme_dark_errorContainer = Color(0xFF93000A)
 val md_theme_dark_onErrorContainer = Color(0xFFFFDAD6)
 val md_theme_dark_outline = Color(0xFF918F9A)
-val md_theme_dark_background = Color(0xFF1B1B1F) // Deep space background
+val md_theme_dark_background = Color(0xFF0F0F14) // Deeper black-indigo
 val md_theme_dark_onBackground = Color(0xFFE4E1E6)
 val md_theme_dark_surface = Color(0xFF1B1B1F)
 val md_theme_dark_onSurface = Color(0xFFE4E1E6)
-val md_theme_dark_surfaceVariant = Color(0xFF47464F)
+val md_theme_dark_surfaceVariant = Color(0xFF2A2A33) // Darker variant for nested depth
 val md_theme_dark_onSurfaceVariant = Color(0xFFC8C5D0)
-val md_theme_dark_inverseOnSurface = Color(0xFF1B1B1F)
+val md_theme_dark_inverseOnSurface = Color(0xFF0F0F14)
 val md_theme_dark_inverseSurface = Color(0xFFE4E1E6)
 val md_theme_dark_inversePrimary = Color(0xFF4A4D8C)
 val md_theme_dark_surfaceTint = Color(0xFFC1C1FF)

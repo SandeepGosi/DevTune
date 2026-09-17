@@ -2,13 +2,14 @@ package com.devtune.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.devtune.ui.theme.DevTuneTheme
 
@@ -20,6 +21,7 @@ fun FeatureCard(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     onClick: (() -> Unit)? = null,
+    tonalElevation: Dp = 1.dp,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     Card(
@@ -27,7 +29,7 @@ fun FeatureCard(
         enabled = onClick != null,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(tonalElevation)
         ),
         shape = MaterialTheme.shapes.large
     ) {
@@ -39,7 +41,7 @@ fun FeatureCard(
                 horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
             ) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(36.dp),
                     shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.primaryContainer,
                     tonalElevation = 4.dp
@@ -49,7 +51,7 @@ fun FeatureCard(
                             imageVector = icon,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -72,15 +74,15 @@ fun FeatureCard(
                 
                 if (onClick != null) {
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
             
-            val contentSpacer = if (supportingText != null) DevTuneTheme.spacing.medium else DevTuneTheme.spacing.small
-            Spacer(modifier = Modifier.height(contentSpacer))
+            Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
             
             content()
         }
