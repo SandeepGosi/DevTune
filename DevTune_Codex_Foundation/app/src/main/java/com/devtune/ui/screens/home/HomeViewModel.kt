@@ -21,6 +21,7 @@ data class HomeUiState(
     val showDevOptionsInstructions: Boolean = false,
     val showAnimationInstructions: Boolean = false,
     val showDensityInstructions: Boolean = false,
+    val showDensityDevOptionsDisabled: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -63,14 +64,20 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onDensitySettingsClick() {
-        _uiState.update { it.copy(showDensityInstructions = true) }
+        val currentState = uiState.value.systemState ?: return
+        if (currentState.isDeveloperOptionsEnabled) {
+            _uiState.update { it.copy(showDensityInstructions = true) }
+        } else {
+            _uiState.update { it.copy(showDensityDevOptionsDisabled = true) }
+        }
     }
 
     fun onDismissInstructions() {
         _uiState.update { it.copy(
             showDevOptionsInstructions = false,
             showAnimationInstructions = false,
-            showDensityInstructions = false
+            showDensityInstructions = false,
+            showDensityDevOptionsDisabled = false
         ) }
     }
 

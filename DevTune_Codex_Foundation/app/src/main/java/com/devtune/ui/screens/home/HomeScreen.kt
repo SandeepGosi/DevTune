@@ -76,6 +76,14 @@ fun HomeScreen(
         )
     }
 
+    if (uiState.showDensityDevOptionsDisabled) {
+        DensityDevOptionsDisabledDialog(
+            onDismiss = onDismissInstructions,
+            onLearnHowToEnable = onOpenDevOptions,
+            onOpenDisplaySettings = onConfirmOpenDisplaySettings
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -241,13 +249,13 @@ private fun SystemStatusHero(state: SystemState) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "SYSTEM STATUS",
+                    text = "SYSTEM CONFIGURATION",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
                 )
                 StatusBadge(
-                    text = if (state.isDeveloperOptionsEnabled) "Active" else "Limited",
+                    text = "Standard Mode",
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -255,8 +263,8 @@ private fun SystemStatusHero(state: SystemState) {
             Spacer(modifier = Modifier.height(DevTuneTheme.spacing.small))
             
             Text(
-                text = if (state.isDeveloperOptionsEnabled) "Device is ready for tuning" else "Standard Android Mode",
-                style = MaterialTheme.typography.headlineSmall,
+                text = if (state.isDeveloperOptionsEnabled) "Developer settings are available" else "Standard Android configuration",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -316,7 +324,7 @@ private fun ProfilesPreviewModule() {
         }
         
         Text(
-            text = "Profile application coming in M4.",
+            text = "Animation presets",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
@@ -379,7 +387,7 @@ private fun AdvancedControlsModule() {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Unlock Shizuku integration in M4",
+                    text = "Unlock advanced system controls",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -439,12 +447,49 @@ private fun DensitySettingsInstructionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
                 Text("Android does not provide a public direct link to this specific setting on this device.")
-                Text("It is typically found in Display settings as 'Display size' or in Developer Options as 'Smallest width'.")
+                Text("Advanced display-density controls such as Smallest width are available through Developer Options.")
+                Text("Generic display settings may also contain 'Display size'.")
             }
         },
         confirmButton = {
             Button(onClick = onConfirm) {
                 Text("Open Display Settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DensityDevOptionsDisabledDialog(
+    onDismiss: () -> Unit,
+    onLearnHowToEnable: () -> Unit,
+    onOpenDisplaySettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Developer Options is disabled") },
+        text = {
+            Text("Advanced display-density controls such as Smallest width are available through Developer Options.")
+        },
+        confirmButton = {
+            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
+                Button(
+                    onClick = onLearnHowToEnable,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Learn how to enable")
+                }
+                OutlinedButton(
+                    onClick = onOpenDisplaySettings,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Open Display Settings")
+                }
             }
         },
         dismissButton = {
