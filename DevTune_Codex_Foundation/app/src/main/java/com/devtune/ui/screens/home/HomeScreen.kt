@@ -3,10 +3,8 @@ package com.devtune.ui.screens.home
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -78,11 +76,10 @@ fun HomeScreen(
     }
 
     Scaffold(
-
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DevTuneTopAppBar(
-                title = stringResource(R.string.app_name),
+                title = "", // Branding in header
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
@@ -122,54 +119,80 @@ private fun HomeContent(
             .padding(paddingValues),
         contentPadding = PaddingValues(
             bottom = DevTuneTheme.spacing.huge,
-            top = DevTuneTheme.spacing.medium
+            top = DevTuneTheme.spacing.small
         ),
-        verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
+        verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
     ) {
         item {
-            BrandingHeader()
+            DashboardHeader()
         }
 
+        // System Status Overview
         item {
             uiState.systemState?.let { state ->
-                DevTuneSection(title = "System Status") {
-                    StatusRow(
-                        title = "Developer Options",
-                        statusText = if (state.isDeveloperOptionsEnabled) "Enabled" else "Disabled",
-                        statusColor = if (state.isDeveloperOptionsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        icon = Icons.Default.Info,
-                        onClick = onOpenDevOptions,
-                        supportingText = if (state.isDeveloperOptionsEnabled) 
-                            "Tap to open system settings" else "Tap to learn how to enable"
-                    )
-                    
-                    ValueRow(
-                        label = "Logical Display Density",
-                        value = "${state.displayDensityDpi} DPI",
-                        supportingText = "Current system configuration",
-                        onClick = onDensitySettingsClick
-                    )
-                }
+                SystemStatusModule(state)
             }
         }
 
+        // Feature Modules
         item {
-            uiState.systemState?.animationSettings?.let { anim ->
-                DevTuneSection(title = "Animation Scales") {
-                    ValueRow(
-                        label = "Window Animation",
-                        value = "${anim.windowScale}x"
+            Column(
+                modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.screenPadding),
+                verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
+            ) {
+                Text(
+                    text = "System Controls",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
+                )
+
+                FeatureCard(
+                    title = "Developer Options",
+                    supportingText = if (uiState.systemState?.isDeveloperOptionsEnabled == true) 
+                        "Developer settings are available" else "Enable to unlock advanced settings",
+                    icon = Icons.Default.Build,
+                    onClick = onOpenDevOptions
+                ) {
+                    StatusIndicator(
+                        text = if (uiState.systemState?.isDeveloperOptionsEnabled == true) "Enabled" else "Disabled",
+                        color = if (uiState.systemState?.isDeveloperOptionsEnabled == true) 
+                            MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                     )
-                    ValueRow(
-                        label = "Transition Animation",
-                        value = "${anim.transitionScale}x"
+                }
+
+                FeatureCard(
+                    title = "Display Density",
+                    supportingText = "Adjust logical screen scaling",
+                    icon = Icons.Default.AspectRatio,
+                    onClick = onDensitySettingsClick
+                ) {
+                    Text(
+                        text = "${uiState.systemState?.displayDensityDpi} DPI",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    ValueRow(
-                        label = "Animator Duration",
-                        value = "${anim.animatorDurationScale}x"
-                    )
+                }
+
+                FeatureCard(
+                    title = "Animation Scales",
+                    supportingText = "Current system animation values",
+                    icon = Icons.Default.Speed
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
+                    ) {
+                        AnimationValue(label = "Window", value = uiState.systemState?.animationSettings?.windowScale ?: 1f)
+                        AnimationValue(label = "Transition", value = uiState.systemState?.animationSettings?.transitionScale ?: 1f)
+                        AnimationValue(label = "Animator", value = uiState.systemState?.animationSettings?.animatorDurationScale ?: 1f)
+                    }
                     
-                    Column(modifier = Modifier.padding(DevTuneTheme.spacing.medium)) {
+                    Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
+                    
+                    Column {
                         Text(
                             text = "These values are currently read-only. Modification requires future ADB integration.",
                             style = MaterialTheme.typography.bodySmall,
@@ -187,16 +210,144 @@ private fun HomeContent(
             }
         }
 
+        // Profiles Preview (M3.5 Extension Point)
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = DevTuneTheme.spacing.screenPadding)
-            ) {
+            ProfilesPreviewModule()
+        }
+
+        // Advanced Controls (M3.5 Extension Point)
+        item {
+            AdvancedControlsModule()
+        }
+    }
+}
+
+@Composable
+private fun SystemStatusModule(state: com.devtune.domain.model.SystemState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = DevTuneTheme.spacing.screenPadding),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(DevTuneTheme.spacing.medium)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
                 Text(
-                    text = "DevTune helps you understand and manage Android developer and system preferences.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "SYSTEM STATUS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = if (state.isDeveloperOptionsEnabled) "Ready for Tuning" else "Standard Mode",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            StatusIndicator(
+                text = if (state.isDeveloperOptionsEnabled) "Active" else "Limited",
+                color = if (state.isDeveloperOptionsEnabled) 
+                    MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfilesPreviewModule() {
+    Column(
+        modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
+    ) {
+        Text(
+            text = "Quick Profiles",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
+        )
+        
+        ScrollableTabRow(
+            selectedTabIndex = 0,
+            divider = {},
+            indicator = {},
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            edgePadding = 0.dp
+        ) {
+            ProfileChip(name = "Default", value = "1.0x", selected = true)
+            ProfileChip(name = "Fast", value = "0.5x")
+            ProfileChip(name = "No Animation", value = "0.0x")
+        }
+        
+        Text(
+            text = "Profile application will be available in future updates.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
+        )
+    }
+}
+
+@Composable
+private fun ProfileChip(name: String, value: String, selected: Boolean = false) {
+    Surface(
+        modifier = Modifier.padding(end = DevTuneTheme.spacing.small),
+        shape = MaterialTheme.shapes.medium,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.medium, vertical = DevTuneTheme.spacing.small),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Text(text = value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun AdvancedControlsModule() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = DevTuneTheme.spacing.screenPadding),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier.padding(DevTuneTheme.spacing.medium),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
+        ) {
+            Icon(
+                Icons.Default.Bolt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(32.dp)
+            )
+            Column {
+                Text(
+                    text = "Advanced Controls",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Shizuku integration coming soon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }
         }
@@ -204,35 +355,10 @@ private fun HomeContent(
 }
 
 @Composable
-private fun BrandingHeader() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = DevTuneTheme.spacing.screenPadding),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Surface(
-            modifier = Modifier.size(64.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 4.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.Tune,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
-        Text(
-            text = "System Companion",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+private fun AnimationValue(label: String, value: Float) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = "${value}x", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -297,7 +423,6 @@ private fun DensitySettingsInstructionDialog(
 
 @Composable
 private fun DeveloperOptionsInstructionDialog(
-
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -328,7 +453,6 @@ private fun DeveloperOptionsInstructionDialog(
 
 @Composable
 private fun StatusRow(
-
     title: String,
     statusText: String,
     statusColor: androidx.compose.ui.graphics.Color,
