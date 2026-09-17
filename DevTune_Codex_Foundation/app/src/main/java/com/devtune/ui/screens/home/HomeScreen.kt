@@ -158,26 +158,30 @@ private fun HomeContent(
                 DevTuneSection(title = "Animation Scales") {
                     ValueRow(
                         label = "Window Animation",
-                        value = "${anim.windowScale}x",
-                        onClick = onAnimationSettingsClick
+                        value = "${anim.windowScale}x"
                     )
                     ValueRow(
                         label = "Transition Animation",
-                        value = "${anim.transitionScale}x",
-                        onClick = onAnimationSettingsClick
+                        value = "${anim.transitionScale}x"
                     )
                     ValueRow(
                         label = "Animator Duration",
-                        value = "${anim.animatorDurationScale}x",
-                        onClick = onAnimationSettingsClick
+                        value = "${anim.animatorDurationScale}x"
                     )
                     
-                    Box(modifier = Modifier.padding(DevTuneTheme.spacing.medium)) {
+                    Column(modifier = Modifier.padding(DevTuneTheme.spacing.medium)) {
                         Text(
                             text = "These values are currently read-only. Modification requires future ADB integration.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
+                        Button(
+                            onClick = onAnimationSettingsClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Open Developer Options")
+                        }
                     }
                 }
             }
@@ -244,9 +248,11 @@ private fun AnimationSettingsInstructionDialog(
             Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
                 Text("Android does not provide a public direct link to these individual settings on this device.")
                 Text("You can find them manually in Developer Options:")
-                Text("• Window animation scale", style = MaterialTheme.typography.bodySmall)
-                Text("• Transition animation scale", style = MaterialTheme.typography.bodySmall)
-                Text("• Animator duration scale", style = MaterialTheme.typography.bodySmall)
+                
+                val bullet = "\u2022"
+                Text("$bullet Window animation scale", style = MaterialTheme.typography.bodySmall)
+                Text("$bullet Transition animation scale", style = MaterialTheme.typography.bodySmall)
+                Text("$bullet Animator duration scale", style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
