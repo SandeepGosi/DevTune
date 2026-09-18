@@ -1,20 +1,21 @@
-# Task: M3 — Platform Capabilities
+# Task: M4 — Shizuku Foundation
 
-- [/] M3 Research & Planning
-	- [x] Investigate Developer Options APIs
-	- [x] Investigate Animation Settings APIs
-	- [x] Investigate Display Density APIs
+- [/] M4 Research & Planning
+	- [x] Research Shizuku API (Version 13.1.5)
 	- [x] Create implementation plan
-- [ ] M3 Implementation
-	- [ ] Update Domain Layer (Models & Use Cases)
-	- [ ] Implement Platform Layer (AndroidSystemControlProvider)
-	- [ ] Implement Data Layer (PlatformRepository)
-	- [ ] Update Presentation Layer (HomeViewModel & HomeScreen)
-	- [ ] Setup Dependency Injection (PlatformModule)
-- [ ] M3 Verification
-	- [ ] Run Unit Tests
-	- [ ] Run Instrumentation Tests
-	- [ ] Manual Verification (Emulator)
-- [ ] M3 Final Review & Documentation
-	- [ ] Create ADR for Platform Architecture
+- [ ] M4 Implementation
+	- [ ] Add Shizuku dependency
+	- [ ] Create Domain Models (ShizukuState, ShizukuBackend)
+	- [ ] Create ShizukuProvider interface (Platform layer)
+	- [ ] Implement AndroidShizukuProvider
+	- [ ] Implement ShizukuRepository and Use Cases
+	- [ ] Update HomeViewModel to observe Shizuku state
+	- [ ] Update Home screen "Advanced Controls" card
+	- [ ] Create Shizuku Information screen (optional navigation)
+- [ ] M4 Verification
+	- [ ] Unit tests for state mapping
+	- [ ] Instrumentation tests (if possible)
+	- [ ] Build, Lint, and Quality Gate
+- [ ] M4 Documentation
+	- [ ] Create ADR-003 for Shizuku Integration
 	- [ ] Final Commit & Report

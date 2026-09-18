@@ -12,11 +12,16 @@ import com.devtune.domain.usecase.GetCapabilityStateUseCase
 import com.devtune.domain.usecase.GetSystemStateUseCase
 import com.devtune.domain.usecase.OpenDeveloperOptionsUseCase
 import com.devtune.domain.usecase.OpenDeviceInfoSettingsUseCase
+import com.devtune.domain.model.ShizukuState
+import com.devtune.domain.usecase.GetShizukuStateUseCase
 import com.devtune.domain.usecase.OpenDisplaySettingsUseCase
+import com.devtune.domain.usecase.RequestShizukuPermissionUseCase
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val systemState: SystemState? = null,
+    val shizukuState: ShizukuState = ShizukuState.Unknown,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
     val showDevOptionsInstructions: Boolean = false,
     val showAnimationInstructions: Boolean = false,
@@ -28,19 +33,23 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     getSystemStateUseCase: GetSystemStateUseCase,
+    getShizukuStateUseCase: GetShizukuStateUseCase,
     private val getCapabilityStateUseCase: GetCapabilityStateUseCase,
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase,
     private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase,
-    private val openDisplaySettingsUseCase: OpenDisplaySettingsUseCase
+    private val openDisplaySettingsUseCase: OpenDisplaySettingsUseCase,
+    private val requestShizukuPermissionUseCase: RequestShizukuPermissionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = combine(
         getSystemStateUseCase(),
+        getShizukuStateUseCase(),
         _uiState
-    ) { systemState, currentUiState ->
+    ) { systemState, shizukuState, currentUiState ->
         currentUiState.copy(
             systemState = systemState,
+            shizukuState = shizukuState,
             canOpenDevOptions = getCapabilityStateUseCase(PlatformCapability.OPEN_DEVELOPER_OPTIONS),
             isLoading = false
         )
@@ -69,6 +78,17 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(showDensityInstructions = true) }
         } else {
             _uiState.update { it.copy(showDensityDevOptionsDisabled = true) }
+        }
+    }
+
+    fun onAdvancedControlsClick() {
+        val currentState = uiState.value.shizukuState
+        if (currentState is ShizukuState.PermissionRequired) {
+            viewModelScope.launch {
+                requestShizukuPermissionUseCase()
+            }
+        } else if (currentState is ShizukuState.NotInstalled || currentState is ShizukuState.Stopped) {
+            // TODO: Navigate to info/guide screen in future
         }
     }
 

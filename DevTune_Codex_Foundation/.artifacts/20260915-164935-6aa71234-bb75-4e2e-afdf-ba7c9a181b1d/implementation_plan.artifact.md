@@ -1,90 +1,84 @@
-# Implementation Plan - M3: Platform Capabilities
+# Implementation Plan - M4: Shizuku Foundation
 
-Establish the foundation for real-world Android platform access using capability-driven design.
+Establish the core Shizuku integration layer as an optional privileged capability provider.
 
-## Platform Research Findings
+## User Review Required
 
-### Developer Options
-*   **Status Detection:** Can be read via `Settings.Global.getInt(contentResolver, "development_settings_enabled", 0)`.
-*   **Navigation:** Official Intent action is `android.settings.APPLICATION_DEVELOPMENT_SETTINGS`.
-*   **Control:** Third-party apps **cannot** enable/disable Developer Options programmatically (requires `WRITE_SECURE_SETTINGS`, a signature/privileged permission).
-*   **Compatibility:** Intent is standard but some OEMs (e.g., Xiaomi) may have intermediate screens or non-standard paths.
-
-### Animation Settings
-*   **Keys:** `WINDOW_ANIMATION_SCALE`, `TRANSITION_ANIMATION_SCALE`, `ANIMATOR_DURATION_SCALE`.
-*   **Read:** Normal apps **can** read these values using `Settings.Global.getFloat`.
-*   **Write:** Normal apps **cannot** write these values (requires `WRITE_SECURE_SETTINGS`).
-*   **State:** Values are floats (1.0 = 1x, 0.5 = 0.5x, 0.0 = Off).
-
-### Display Density
-*   **API:** `resources.configuration.densityDpi` or `context.display.getMetrics`.
-*   **Value:** Represents the logical density bucket (DPI), not necessarily the exact physical hardware DPI.
-*   **Read:** Standard public API, no special permissions.
+> [!IMPORTANT]
+> This milestone focus on **read-only status and capability detection**. No system settings will be modified in M4.
 
 ## Proposed Changes
 
+### Build Configuration
+
+#### [libs.versions.toml](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/gradle/libs.versions.toml)
+- Add `shizuku = "13.1.5"` version.
+- Add `shizuku-api` and `shizuku-provider` libraries.
+
+#### [app/build.gradle.kts](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/build.gradle.kts)
+- Add Shizuku dependencies.
+
+---
+
 ### Domain Layer
 
-#### [PlatformCapability.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/PlatformCapability.kt)
-*   Ensure `CapabilityState` and `PlatformCapability` are robust.
+#### [NEW] [ShizukuState.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/ShizukuState.kt)
+- Enum/Sealed class for states: `NOT_INSTALLED`, `STOPPED`, `PERMISSION_REQUIRED`, `AUTHORIZED`, `CONNECTION_LOST`, `UNKNOWN`.
+- `ShizukuBackend`: `ADB`, `ROOT`, `NONE`.
 
-#### [NEW] [AnimationSettings.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/AnimationSettings.kt)
-*   Data class for animation scales.
+#### [NEW] [ShizukuRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/ShizukuRepository.kt)
+- Interface for observing state and requesting permission.
 
-#### [NEW] [PlatformCapabilitiesUseCase.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/PlatformCapabilitiesUseCase.kt)
-*   `GetCapabilityStateUseCase`
-*   `GetAnimationSettingsUseCase`
-*   `GetDisplayDensityUseCase`
-*   `OpenDeveloperOptionsUseCase`
+#### [NEW] [ShizukuUseCases.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/ShizukuUseCases.kt)
+- `GetShizukuStateUseCase`
+- `RequestShizukuPermissionUseCase`
 
 ---
 
 ### Platform Layer
 
-#### [SystemControlProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/SystemControlProvider.kt)
-*   Update interface with methods for reading status and launching intents.
+#### [NEW] [ShizukuProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/shizuku/ShizukuProvider.kt)
+- Interface for Shizuku interaction.
 
-#### [NEW] [AndroidSystemControlProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/AndroidSystemControlProvider.kt)
-*   Implementation using `ContentResolver`, `Settings.Global`, and `Resources`.
+#### [NEW] [AndroidShizukuProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/shizuku/AndroidShizukuProvider.kt)
+- Implementation using `riikka.shizuku` APIs.
+- Manages Binder listeners and permission callbacks.
 
 ---
 
 ### Data Layer
 
-#### [NEW] [PlatformRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/PlatformRepository.kt) / [PlatformRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/PlatformRepositoryImpl.kt)
-*   Bridge between domain use cases and the platform provider.
+#### [NEW] [ShizukuRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/ShizukuRepositoryImpl.kt)
+- Maps platform Shizuku states to domain models.
 
 ---
 
 ### Presentation Layer
 
 #### [HomeViewModel.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeViewModel.kt)
-*   Expose `HomeUiState` containing real platform data.
-*   Handle the "Open Developer Options" event.
+- Collect Shizuku state and expose it to the UI.
 
 #### [HomeScreen.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeScreen.kt)
-*   Update to observe `HomeUiState` and display real values.
-*   Connect "Developer Options" row to the ViewModel action.
+- Update "Advanced Controls" card with real Shizuku status and a "Request Permission" or "Setup Guidance" action.
 
 ---
 
 ### Dependency Injection
 
-#### [NEW] [PlatformModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/PlatformModule.kt)
-*   Hilt module to provide `SystemControlProvider`.
+#### [PlatformModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/PlatformModule.kt)
+- Provide `ShizukuProvider` and `ShizukuRepository`.
 
 ## Verification Plan
 
 ### Automated Tests
-*   **Unit Tests:**
-    *   `AndroidSystemControlProviderTest`: Verify mapping of `Settings.Global` values to domain models.
-    *   `HomeViewModelTest`: Verify state updates when platform data changes.
-*   **Instrumentation Tests:**
-    *   `PlatformCapabilityTest`: Verify reading real values from the emulator.
+- **Unit Tests**:
+    - `ShizukuStateMappingTest`: Verify platform-to-domain state transitions.
+    - `ShizukuRepositoryTest`: Verify flow emission on binder events.
 
 ### Manual Verification
-*   Verify Home screen displays correct logical DPI (420 on emulator).
-*   Verify Home screen displays correct Animation scales.
-*   Verify "Developer Options" row correctly shows "Enabled" (if enabled on emulator).
-*   Clicking "Developer Options" opens the system settings screen.
-*   Verify behavior when a setting is missing (null value handling).
+- Verify Home screen shows "Shizuku not detected" if absent.
+- If Shizuku is running:
+    - Verify "Permission Required" state.
+    - Verify successful authorization flow.
+    - Verify "Backend Type" detection (ADB vs Root).
+- Verify state updates when Shizuku service is stopped/started while DevTune is in foreground.

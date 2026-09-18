@@ -10,6 +10,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+import com.devtune.data.repository.ShizukuRepositoryImpl
+import com.devtune.domain.repository.ShizukuRepository
+import com.devtune.platform.shizuku.AndroidShizukuProvider
+import com.devtune.platform.shizuku.ShizukuProvider
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class PlatformModule {
@@ -25,4 +30,16 @@ abstract class PlatformModule {
     abstract fun bindPlatformRepository(
         impl: PlatformRepositoryImpl
     ): PlatformRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindShizukuProvider(
+        impl: AndroidShizukuProvider
+    ): ShizukuProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindShizukuRepository(
+        impl: ShizukuRepositoryImpl
+    ): ShizukuRepository
 }

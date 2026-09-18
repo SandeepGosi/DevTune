@@ -57,6 +57,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
     ksp(libs.hilt.compiler)
 
     val composeBom = platform(libs.androidx.compose.bom)

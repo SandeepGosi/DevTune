@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devtune.R
-import com.devtune.domain.model.CapabilityState
+import com.devtune.domain.model.ShizukuState
 import com.devtune.domain.model.SystemState
 import com.devtune.ui.components.*
 import com.devtune.ui.theme.DevTuneTheme
@@ -33,6 +33,7 @@ fun HomeRoute(
         onOpenDevOptions = viewModel::onDeveloperOptionsClick,
         onAnimationSettingsClick = viewModel::onAnimationSettingsClick,
         onDensitySettingsClick = viewModel::onDensitySettingsClick,
+        onAdvancedControlsClick = viewModel::onAdvancedControlsClick,
         onDismissInstructions = viewModel::onDismissInstructions,
         onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick,
         onConfirmOpenDeveloperOptions = viewModel::onOpenDeveloperOptionsClick,
@@ -48,12 +49,14 @@ fun HomeScreen(
     onOpenDevOptions: () -> Unit,
     onAnimationSettingsClick: () -> Unit,
     onDensitySettingsClick: () -> Unit,
+    onAdvancedControlsClick: () -> Unit,
     onDismissInstructions: () -> Unit,
     onConfirmOpenDeviceInfo: () -> Unit,
     onConfirmOpenDeveloperOptions: () -> Unit,
     onConfirmOpenDisplaySettings: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
 
     if (uiState.showDevOptionsInstructions) {
         DeveloperOptionsInstructionDialog(
@@ -108,7 +111,8 @@ fun HomeScreen(
                 paddingValues = paddingValues,
                 onOpenDevOptions = onOpenDevOptions,
                 onAnimationSettingsClick = onAnimationSettingsClick,
-                onDensitySettingsClick = onDensitySettingsClick
+                onDensitySettingsClick = onDensitySettingsClick,
+                onAdvancedControlsClick = onAdvancedControlsClick
             )
         }
     }
@@ -120,8 +124,10 @@ private fun HomeContent(
     paddingValues: PaddingValues,
     onOpenDevOptions: () -> Unit,
     onAnimationSettingsClick: () -> Unit,
-    onDensitySettingsClick: () -> Unit
+    onDensitySettingsClick: () -> Unit,
+    onAdvancedControlsClick: () -> Unit
 ) {
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -223,7 +229,10 @@ private fun HomeContent(
         }
 
         item {
-            AdvancedControlsModule()
+            AdvancedControlsModule(
+                state = uiState.shizukuState,
+                onClick = onAdvancedControlsClick
+            )
         }
     }
 }
@@ -351,8 +360,21 @@ private fun ProfileChip(name: String, value: String, selected: Boolean = false, 
 }
 
 @Composable
-private fun AdvancedControlsModule() {
+private fun AdvancedControlsModule(
+    state: ShizukuState,
+    onClick: () -> Unit
+) {
+    val (statusTitle, statusDescription, statusColor) = when (state) {
+        is ShizukuState.NotInstalled -> Triple("Shizuku not detected", "Unlock advanced system controls", MaterialTheme.colorScheme.outline)
+        is ShizukuState.Stopped -> Triple("Shizuku not running", "Service is stopped", MaterialTheme.colorScheme.error)
+        is ShizukuState.PermissionRequired -> Triple("Permission required", "Tap to grant Shizuku access", MaterialTheme.colorScheme.secondary)
+        is ShizukuState.Authorized -> Triple("Advanced system access", "Shizuku connected via ${state.backend.name}", MaterialTheme.colorScheme.primary)
+        is ShizukuState.ConnectionLost -> Triple("Connection lost", "Shizuku service disconnected", MaterialTheme.colorScheme.error)
+        else -> Triple("Advanced Controls", "Unknown Shizuku state", MaterialTheme.colorScheme.outline)
+    }
+
     Card(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = DevTuneTheme.spacing.screenPadding),
@@ -369,27 +391,35 @@ private fun AdvancedControlsModule() {
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = androidx.compose.foundation.shape.CircleShape,
-                color = MaterialTheme.colorScheme.tertiaryContainer
+                color = if (state is ShizukuState.Authorized) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Default.Bolt,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
+                        tint = if (state is ShizukuState.Authorized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Advanced Controls",
+                    text = statusTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Unlock advanced system controls",
+                    text = statusDescription,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            if (state is ShizukuState.PermissionRequired) {
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
         }
