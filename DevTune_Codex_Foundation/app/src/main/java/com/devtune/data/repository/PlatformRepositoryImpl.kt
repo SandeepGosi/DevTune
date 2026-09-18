@@ -4,19 +4,27 @@ import com.devtune.domain.model.CapabilityState
 import com.devtune.domain.model.PlatformCapability
 import com.devtune.domain.model.SystemState
 import com.devtune.domain.repository.PlatformRepository
+import com.devtune.domain.repository.UserPreferencesRepository
 import com.devtune.platform.SystemControlProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class PlatformRepositoryImpl @Inject constructor(
-    private val systemControlProvider: SystemControlProvider
+    private val systemControlProvider: SystemControlProvider,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : PlatformRepository {
 
     override fun getCapabilityState(capability: PlatformCapability): CapabilityState {
+        if (capability == PlatformCapability.WRITE_ANIMATION_SETTINGS) {
+            val verified = runBlocking { userPreferencesRepository.userPreferences.first().isAnimationWriteVerified }
+            if (verified) return CapabilityState.AVAILABLE
+        }
         return systemControlProvider.getCapabilityState(capability)
     }
 

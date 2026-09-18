@@ -22,7 +22,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 ThemeMode.SYSTEM
             },
             useDynamicColor = data.useDynamicColor,
-            isOnboardingCompleted = data.isOnboardingCompleted
+            isOnboardingCompleted = data.isOnboardingCompleted,
+            isAnimationWriteVerified = data.isAnimationWriteVerified
         )
     }
 
@@ -32,5 +33,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(themeMode: String) {
         dataSource.setThemeMode(themeMode)
+    }
+
+    override suspend fun setAnimationWriteVerified(verified: Boolean) {
+        dataSource.setAnimationWriteVerified(verified)
     }
 }

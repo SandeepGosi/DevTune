@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.devtune.R
+import com.devtune.domain.model.AnimationExperimentResult
+import com.devtune.domain.model.CapabilityState
 import com.devtune.domain.model.ShizukuState
 import com.devtune.domain.model.SystemState
 import com.devtune.ui.components.*
@@ -34,6 +36,8 @@ fun HomeRoute(
         onAnimationSettingsClick = viewModel::onAnimationSettingsClick,
         onDensitySettingsClick = viewModel::onDensitySettingsClick,
         onAdvancedControlsClick = viewModel::onAdvancedControlsClick,
+        onRunAnimationExperiment = viewModel::onRunAnimationExperiment,
+        onDismissExperimentResult = viewModel::onDismissExperimentResult,
         onDismissInstructions = viewModel::onDismissInstructions,
         onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick,
         onConfirmOpenDeveloperOptions = viewModel::onOpenDeveloperOptionsClick,
@@ -50,12 +54,21 @@ fun HomeScreen(
     onAnimationSettingsClick: () -> Unit,
     onDensitySettingsClick: () -> Unit,
     onAdvancedControlsClick: () -> Unit,
+    onRunAnimationExperiment: () -> Unit,
+    onDismissExperimentResult: () -> Unit,
     onDismissInstructions: () -> Unit,
     onConfirmOpenDeviceInfo: () -> Unit,
     onConfirmOpenDeveloperOptions: () -> Unit,
     onConfirmOpenDisplaySettings: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
+    if (uiState.experimentResult != null) {
+        ExperimentResultDialog(
+            result = uiState.experimentResult,
+            onDismiss = onDismissExperimentResult
+        )
+    }
 
 
     if (uiState.showDevOptionsInstructions) {
@@ -112,7 +125,8 @@ fun HomeScreen(
                 onOpenDevOptions = onOpenDevOptions,
                 onAnimationSettingsClick = onAnimationSettingsClick,
                 onDensitySettingsClick = onDensitySettingsClick,
-                onAdvancedControlsClick = onAdvancedControlsClick
+                onAdvancedControlsClick = onAdvancedControlsClick,
+                onRunAnimationExperiment = onRunAnimationExperiment
             )
         }
     }
@@ -125,7 +139,8 @@ private fun HomeContent(
     onOpenDevOptions: () -> Unit,
     onAnimationSettingsClick: () -> Unit,
     onDensitySettingsClick: () -> Unit,
-    onAdvancedControlsClick: () -> Unit
+    onAdvancedControlsClick: () -> Unit,
+    onRunAnimationExperiment: () -> Unit
 ) {
 
     LazyColumn(
@@ -196,7 +211,12 @@ private fun HomeContent(
 
                     FeatureCard(
                         title = "Animation Scales",
-                        supportingText = "Read-only without advanced system access",
+                        supportingText = when {
+                            uiState.writeAnimationCapability == CapabilityState.AVAILABLE -> "Advanced animation control verified"
+                            uiState.shizukuState is ShizukuState.Authorized -> "Verification required for advanced control"
+                            uiState.shizukuState is ShizukuState.PermissionRequired -> "Permission required for advanced control"
+                            else -> "Read-only without advanced system access"
+                        },
                         icon = Icons.Default.Speed,
                         tonalElevation = 1.dp
                     ) {
@@ -211,12 +231,33 @@ private fun HomeContent(
                         
                         Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
                         
-                        Button(
-                            onClick = onAnimationSettingsClick,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Text("Open Developer Options")
+                        if (uiState.shizukuState is ShizukuState.Authorized) {
+                            Button(
+                                onClick = onRunAnimationExperiment,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium,
+                                enabled = !uiState.isExperimentRunning
+                            ) {
+                                if (uiState.isExperimentRunning) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
+                                    Text("Verifying...")
+                                } else {
+                                    Text("Test Animation Control")
+                                }
+                            }
+                        } else {
+                            Button(
+                                onClick = onAnimationSettingsClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text("Open Developer Options")
+                            }
                         }
                     }
                 }
@@ -489,6 +530,49 @@ private fun DensitySettingsInstructionDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ExperimentResultDialog(
+    result: AnimationExperimentResult,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (result is AnimationExperimentResult.Success) "Test Successful" else "Test Failed")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
+                when (result) {
+                    is AnimationExperimentResult.Success -> {
+                        Text("DevTune successfully modified and restored your animation settings.")
+                        Text("Original: ${result.originalScales.windowScale}x")
+                        Text("Test Write: ${result.testValue}x")
+                        Text("Read Back: ${result.readBackValue}x")
+                        Text("Restored: ${result.restoredScales.windowScale}x")
+                        Text("\nAdvanced animation control is now enabled.", fontWeight = FontWeight.Bold)
+                    }
+                    is AnimationExperimentResult.Failure -> {
+                        Text("The test failed at the ${result.stage.name} stage.")
+                        Text("Error: ${result.message}")
+                        if (result.originalScales != null) {
+                            Text("Your original settings were: ${result.originalScales.windowScale}x")
+                        }
+                        if (result.currentScales != null) {
+                            Text("Current system values: ${result.currentScales.windowScale}x")
+                        }
+                        Text("\nAdvanced control remains restricted.", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

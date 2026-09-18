@@ -12,10 +12,10 @@ import com.devtune.domain.usecase.GetCapabilityStateUseCase
 import com.devtune.domain.usecase.GetSystemStateUseCase
 import com.devtune.domain.usecase.OpenDeveloperOptionsUseCase
 import com.devtune.domain.usecase.OpenDeviceInfoSettingsUseCase
+import com.devtune.domain.model.AnimationExperimentResult
 import com.devtune.domain.model.ShizukuState
-import com.devtune.domain.usecase.GetShizukuStateUseCase
-import com.devtune.domain.usecase.OpenDisplaySettingsUseCase
-import com.devtune.domain.usecase.RequestShizukuPermissionUseCase
+import com.devtune.domain.repository.UserPreferencesRepository
+import com.devtune.domain.usecase.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -23,6 +23,9 @@ data class HomeUiState(
     val systemState: SystemState? = null,
     val shizukuState: ShizukuState = ShizukuState.Unknown,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
+    val writeAnimationCapability: CapabilityState = CapabilityState.UNKNOWN,
+    val experimentResult: AnimationExperimentResult? = null,
+    val isExperimentRunning: Boolean = false,
     val showDevOptionsInstructions: Boolean = false,
     val showAnimationInstructions: Boolean = false,
     val showDensityInstructions: Boolean = false,
@@ -38,7 +41,9 @@ class HomeViewModel @Inject constructor(
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase,
     private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase,
     private val openDisplaySettingsUseCase: OpenDisplaySettingsUseCase,
-    private val requestShizukuPermissionUseCase: RequestShizukuPermissionUseCase
+    private val requestShizukuPermissionUseCase: RequestShizukuPermissionUseCase,
+    private val verifyAnimationWriteUseCase: VerifyAnimationWriteUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -51,6 +56,7 @@ class HomeViewModel @Inject constructor(
             systemState = systemState,
             shizukuState = shizukuState,
             canOpenDevOptions = getCapabilityStateUseCase(PlatformCapability.OPEN_DEVELOPER_OPTIONS),
+            writeAnimationCapability = getCapabilityStateUseCase(PlatformCapability.WRITE_ANIMATION_SETTINGS),
             isLoading = false
         )
     }.stateIn(
@@ -58,6 +64,25 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HomeUiState()
     )
+
+    fun onRunAnimationExperiment() {
+        if (uiState.value.isExperimentRunning) return
+        
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExperimentRunning = true, experimentResult = null) }
+            val result = verifyAnimationWriteUseCase()
+            
+            if (result is AnimationExperimentResult.Success) {
+                userPreferencesRepository.setAnimationWriteVerified(true)
+            }
+            
+            _uiState.update { it.copy(isExperimentRunning = false, experimentResult = result) }
+        }
+    }
+
+    fun onDismissExperimentResult() {
+        _uiState.update { it.copy(experimentResult = null) }
+    }
 
     fun onDeveloperOptionsClick() {
         val currentState = uiState.value.systemState ?: return

@@ -4,4 +4,5 @@ data class UserPreferences(
     val themeMode: ThemeMode,
     val useDynamicColor: Boolean,
     val isOnboardingCompleted: Boolean,
+    val isAnimationWriteVerified: Boolean = false
 )

@@ -23,6 +23,7 @@ class UserPreferencesDataSource @Inject constructor(
             themeMode = values[ThemeModeKey] ?: ThemeMode.SYSTEM.name,
             useDynamicColor = values[DynamicColorKey] ?: true,
             isOnboardingCompleted = values[OnboardingCompletedKey] ?: false,
+            isAnimationWriteVerified = values[AnimationWriteVerifiedKey] ?: false,
         )
     }
 
@@ -34,10 +35,15 @@ class UserPreferencesDataSource @Inject constructor(
         context.dataStore.edit { it[OnboardingCompletedKey] = completed }
     }
 
+    suspend fun setAnimationWriteVerified(verified: Boolean) {
+        context.dataStore.edit { it[AnimationWriteVerifiedKey] = verified }
+    }
+
     companion object {
         private val ThemeModeKey = stringPreferencesKey("theme_mode")
         private val DynamicColorKey = booleanPreferencesKey("dynamic_color")
         private val OnboardingCompletedKey = booleanPreferencesKey("onboarding_completed")
+        private val AnimationWriteVerifiedKey = booleanPreferencesKey("animation_write_verified")
     }
 }
 
@@ -45,4 +51,5 @@ data class UserPreferences(
     val themeMode: String,
     val useDynamicColor: Boolean,
     val isOnboardingCompleted: Boolean,
+    val isAnimationWriteVerified: Boolean,
 )

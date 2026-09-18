@@ -10,7 +10,8 @@ class UserPreferencesTest {
         val preferences = UserPreferences(
             themeMode = ThemeMode.SYSTEM.name,
             useDynamicColor = true,
-            isOnboardingCompleted = false
+            isOnboardingCompleted = false,
+            isAnimationWriteVerified = false
         )
 
         assertEquals(ThemeMode.SYSTEM.name, preferences.themeMode)
