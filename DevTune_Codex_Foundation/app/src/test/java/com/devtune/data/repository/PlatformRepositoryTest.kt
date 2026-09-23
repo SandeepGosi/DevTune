@@ -1,9 +1,7 @@
 package com.devtune.data.repository
 
-import com.devtune.domain.model.CapabilityState
-import com.devtune.domain.model.PlatformCapability
-import com.devtune.domain.model.ThemeMode
-import com.devtune.domain.model.UserPreferences
+import com.devtune.domain.model.*
+import com.devtune.domain.repository.ShizukuRepository
 import com.devtune.domain.repository.UserPreferencesRepository
 import com.devtune.platform.SystemControlProvider
 import kotlinx.coroutines.flow.flowOf
@@ -17,12 +15,24 @@ class PlatformRepositoryTest {
 
     private val provider: SystemControlProvider = mock()
     private val prefsRepository: UserPreferencesRepository = mock()
-    private val repository = PlatformRepositoryImpl(provider, prefsRepository)
+    private val shizukuRepository: ShizukuRepository = mock()
+    private val repository = PlatformRepositoryImpl(provider, prefsRepository, shizukuRepository)
 
     @Test
-    fun `WRITE_ANIMATION_SETTINGS is AVAILABLE when verified in preferences`() = runTest {
+    fun `WRITE_ANIMATION_SETTINGS is AVAILABLE when current backend and version match last verified success`() = runTest {
         whenever(prefsRepository.userPreferences).thenReturn(flowOf(
-            UserPreferences(ThemeMode.SYSTEM, true, true, isAnimationWriteVerified = true)
+            UserPreferences(
+                themeMode = ThemeMode.SYSTEM,
+                useDynamicColor = true,
+                isOnboardingCompleted = true,
+                lastVerifiedBackend = "ADB",
+                lastVerifiedAndroidVersion = android.os.Build.VERSION.SDK_INT,
+                lastVerifiedAt = System.currentTimeMillis(),
+                lastVerifiedSuccess = true
+            )
+        ))
+        whenever(shizukuRepository.state).thenReturn(flowOf(
+            ShizukuState.Authorized(ShizukuBackend.ADB)
         ))
         
         val state = repository.getCapabilityState(PlatformCapability.WRITE_ANIMATION_SETTINGS)
@@ -30,9 +40,20 @@ class PlatformRepositoryTest {
     }
 
     @Test
-    fun `WRITE_ANIMATION_SETTINGS returns provider state when not verified`() = runTest {
+    fun `WRITE_ANIMATION_SETTINGS returns RESTRICTED when backend changes after verification`() = runTest {
         whenever(prefsRepository.userPreferences).thenReturn(flowOf(
-            UserPreferences(ThemeMode.SYSTEM, true, true, isAnimationWriteVerified = false)
+            UserPreferences(
+                themeMode = ThemeMode.SYSTEM,
+                useDynamicColor = true,
+                isOnboardingCompleted = true,
+                lastVerifiedBackend = "ROOT",
+                lastVerifiedAndroidVersion = android.os.Build.VERSION.SDK_INT,
+                lastVerifiedAt = System.currentTimeMillis(),
+                lastVerifiedSuccess = true
+            )
+        ))
+        whenever(shizukuRepository.state).thenReturn(flowOf(
+            ShizukuState.Authorized(ShizukuBackend.ADB) // Current backend ADB != Verified ROOT
         ))
         whenever(provider.getCapabilityState(PlatformCapability.WRITE_ANIMATION_SETTINGS))
             .thenReturn(CapabilityState.RESTRICTED)

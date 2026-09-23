@@ -23,7 +23,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             },
             useDynamicColor = data.useDynamicColor,
             isOnboardingCompleted = data.isOnboardingCompleted,
-            isAnimationWriteVerified = data.isAnimationWriteVerified
+            lastVerifiedBackend = data.lastVerifiedBackend,
+            lastVerifiedAndroidVersion = data.lastVerifiedAndroidVersion,
+            lastVerifiedAt = data.lastVerifiedAt,
+            lastVerifiedSuccess = data.lastVerifiedSuccess
         )
     }
 
@@ -35,7 +38,11 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataSource.setThemeMode(themeMode)
     }
 
-    override suspend fun setAnimationWriteVerified(verified: Boolean) {
-        dataSource.setAnimationWriteVerified(verified)
+    override suspend fun recordAnimationWriteVerification(
+        backend: String,
+        androidVersion: Int,
+        success: Boolean
+    ) {
+        dataSource.recordAnimationWriteVerification(backend, androidVersion, success)
     }
 }

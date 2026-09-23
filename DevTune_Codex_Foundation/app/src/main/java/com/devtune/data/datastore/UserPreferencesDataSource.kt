@@ -23,7 +23,10 @@ class UserPreferencesDataSource @Inject constructor(
             themeMode = values[ThemeModeKey] ?: ThemeMode.SYSTEM.name,
             useDynamicColor = values[DynamicColorKey] ?: true,
             isOnboardingCompleted = values[OnboardingCompletedKey] ?: false,
-            isAnimationWriteVerified = values[AnimationWriteVerifiedKey] ?: false,
+            lastVerifiedBackend = values[LastVerifiedBackendKey] ?: "NONE",
+            lastVerifiedAndroidVersion = values[LastVerifiedAndroidVersionKey] ?: 0,
+            lastVerifiedAt = values[LastVerifiedAtKey] ?: 0L,
+            lastVerifiedSuccess = values[LastVerifiedSuccessKey] ?: false
         )
     }
 
@@ -35,15 +38,27 @@ class UserPreferencesDataSource @Inject constructor(
         context.dataStore.edit { it[OnboardingCompletedKey] = completed }
     }
 
-    suspend fun setAnimationWriteVerified(verified: Boolean) {
-        context.dataStore.edit { it[AnimationWriteVerifiedKey] = verified }
+    suspend fun recordAnimationWriteVerification(
+        backend: String,
+        androidVersion: Int,
+        success: Boolean
+    ) {
+        context.dataStore.edit {
+            it[LastVerifiedBackendKey] = backend
+            it[LastVerifiedAndroidVersionKey] = androidVersion
+            it[LastVerifiedAtKey] = System.currentTimeMillis()
+            it[LastVerifiedSuccessKey] = success
+        }
     }
 
     companion object {
         private val ThemeModeKey = stringPreferencesKey("theme_mode")
         private val DynamicColorKey = booleanPreferencesKey("dynamic_color")
         private val OnboardingCompletedKey = booleanPreferencesKey("onboarding_completed")
-        private val AnimationWriteVerifiedKey = booleanPreferencesKey("animation_write_verified")
+        private val LastVerifiedBackendKey = stringPreferencesKey("last_verified_backend")
+        private val LastVerifiedAndroidVersionKey = androidx.datastore.preferences.core.intPreferencesKey("last_verified_android_version")
+        private val LastVerifiedAtKey = androidx.datastore.preferences.core.longPreferencesKey("last_verified_at")
+        private val LastVerifiedSuccessKey = booleanPreferencesKey("last_verified_success")
     }
 }
 
@@ -51,5 +66,8 @@ data class UserPreferences(
     val themeMode: String,
     val useDynamicColor: Boolean,
     val isOnboardingCompleted: Boolean,
-    val isAnimationWriteVerified: Boolean,
+    val lastVerifiedBackend: String,
+    val lastVerifiedAndroidVersion: Int,
+    val lastVerifiedAt: Long,
+    val lastVerifiedSuccess: Boolean
 )

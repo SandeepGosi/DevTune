@@ -71,6 +71,14 @@ fun HomeScreen(
     }
 
 
+    if (uiState.showDensityDetailSheet && uiState.displayDensityInfo != null) {
+        DisplayDensityDetailSheet(
+            densityInfo = uiState.displayDensityInfo,
+            onDismiss = onDismissInstructions,
+            onOpenDisplaySettings = onConfirmOpenDisplaySettings
+        )
+    }
+
     if (uiState.showDevOptionsInstructions) {
         DeveloperOptionsInstructionDialog(
             onDismiss = onDismissInstructions,
@@ -197,16 +205,37 @@ private fun HomeContent(
 
                     FeatureCard(
                         title = "Display Density",
-                        supportingText = "Current system configuration",
+                        supportingText = uiState.displayDensityInfo?.let { 
+                            "${it.smallestWidthDp} dp smallest width · ${it.resolutionString}" 
+                        } ?: "Current system metrics",
                         icon = Icons.Default.AspectRatio,
                         onClick = onDensitySettingsClick
                     ) {
-                        Text(
-                            text = "${state.displayDensityDpi} DPI",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                uiState.displayDensityInfo?.let { info ->
+                                    Text(
+                                        text = "${info.currentDensityDpi} dpi · ${info.scaleString}",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                } ?: Text(
+                                    text = "${state.displayDensityDpi} DPI",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                StatusBadge(
+                                    text = "Read-only",
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
                     }
 
                     FeatureCard(
@@ -612,6 +641,68 @@ private fun DensityDevOptionsDisabledDialog(
             }
         }
     )
+}
+
+@Composable
+private fun DisplayDensityDetailSheet(
+    densityInfo: com.devtune.domain.model.DisplayDensityInfo,
+    onDismiss: () -> Unit,
+    onOpenDisplaySettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Display Density Metrics") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
+            ) {
+                DensityMetricRow("Current Logical Density", "${densityInfo.currentDensityDpi} dpi (${densityInfo.scaleString})")
+                DensityMetricRow("Smallest Width", "${densityInfo.smallestWidthDp} dp")
+                DensityMetricRow("Screen Resolution", densityInfo.resolutionString)
+                DensityMetricRow("Configuration Density", "${densityInfo.configurationDensityDpi} dpi")
+                DensityMetricRow("DisplayMetrics Density", "${densityInfo.displayMetricsDensityDpi} dpi")
+                DensityMetricRow("Forced Density Override", densityInfo.forcedDensityDpi?.let { "$it dpi" } ?: "Default Panel Density")
+
+                Spacer(modifier = Modifier.height(DevTuneTheme.spacing.small))
+
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Text(
+                        text = "Changing display density requires system-level access that is not supported by DevTune on this Android configuration.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(DevTuneTheme.spacing.medium)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onOpenDisplaySettings()
+                onDismiss()
+            }) {
+                Text("Open Display Settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DensityMetricRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    }
 }
 
 @Composable

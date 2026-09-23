@@ -84,10 +84,15 @@ open class AndroidShizukuProvider @Inject constructor(
     @VisibleForTesting
     open fun isShizukuInstalledForTest(): Boolean {
         return try {
-            context.packageManager.getPackageInfo("rikka.app.shizuku", 0)
+            context.packageManager.getPackageInfo("moe.shizuku.privileged.api", 0)
             true
         } catch (e: PackageManager.NameNotFoundException) {
-            false
+            try {
+                context.packageManager.getPackageInfo("rikka.app.shizuku", 0)
+                true
+            } catch (e2: PackageManager.NameNotFoundException) {
+                false
+            }
         }
     }
 

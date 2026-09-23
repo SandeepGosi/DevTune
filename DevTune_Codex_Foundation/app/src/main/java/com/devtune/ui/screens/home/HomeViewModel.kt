@@ -21,15 +21,19 @@ import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val systemState: SystemState? = null,
+    val displayDensityInfo: com.devtune.domain.model.DisplayDensityInfo? = null,
     val shizukuState: ShizukuState = ShizukuState.Unknown,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
     val writeAnimationCapability: CapabilityState = CapabilityState.UNKNOWN,
+    val readDensityCapability: CapabilityState = CapabilityState.UNKNOWN,
+    val writeDensityCapability: CapabilityState = CapabilityState.UNKNOWN,
     val experimentResult: AnimationExperimentResult? = null,
     val isExperimentRunning: Boolean = false,
     val showDevOptionsInstructions: Boolean = false,
     val showAnimationInstructions: Boolean = false,
     val showDensityInstructions: Boolean = false,
     val showDensityDevOptionsDisabled: Boolean = false,
+    val showDensityDetailSheet: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -37,6 +41,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     getSystemStateUseCase: GetSystemStateUseCase,
     getShizukuStateUseCase: GetShizukuStateUseCase,
+    getDisplayDensityInfoUseCase: GetDisplayDensityInfoUseCase,
     private val getCapabilityStateUseCase: GetCapabilityStateUseCase,
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase,
     private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase,
@@ -50,13 +55,17 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         getSystemStateUseCase(),
         getShizukuStateUseCase(),
+        getDisplayDensityInfoUseCase(),
         _uiState
-    ) { systemState, shizukuState, currentUiState ->
+    ) { systemState, shizukuState, densityInfo, currentUiState ->
         currentUiState.copy(
             systemState = systemState,
+            displayDensityInfo = densityInfo,
             shizukuState = shizukuState,
             canOpenDevOptions = getCapabilityStateUseCase(PlatformCapability.OPEN_DEVELOPER_OPTIONS),
             writeAnimationCapability = getCapabilityStateUseCase(PlatformCapability.WRITE_ANIMATION_SETTINGS),
+            readDensityCapability = getCapabilityStateUseCase(PlatformCapability.READ_DISPLAY_DENSITY),
+            writeDensityCapability = getCapabilityStateUseCase(PlatformCapability.WRITE_DISPLAY_DENSITY),
             isLoading = false
         )
     }.stateIn(
@@ -72,9 +81,16 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(isExperimentRunning = true, experimentResult = null) }
             val result = verifyAnimationWriteUseCase()
             
-            if (result is AnimationExperimentResult.Success) {
-                userPreferencesRepository.setAnimationWriteVerified(true)
-            }
+            val shizukuState = uiState.value.shizukuState
+            val currentBackend = if (shizukuState is ShizukuState.Authorized) shizukuState.backend.name else "NONE"
+            val androidVersion = android.os.Build.VERSION.SDK_INT
+            val success = result is AnimationExperimentResult.Success
+
+            userPreferencesRepository.recordAnimationWriteVerification(
+                backend = currentBackend,
+                androidVersion = androidVersion,
+                success = success
+            )
             
             _uiState.update { it.copy(isExperimentRunning = false, experimentResult = result) }
         }
@@ -98,12 +114,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onDensitySettingsClick() {
-        val currentState = uiState.value.systemState ?: return
-        if (currentState.isDeveloperOptionsEnabled) {
-            _uiState.update { it.copy(showDensityInstructions = true) }
-        } else {
-            _uiState.update { it.copy(showDensityDevOptionsDisabled = true) }
-        }
+        _uiState.update { it.copy(showDensityDetailSheet = true) }
+    }
+
+    fun onDismissDensityDetailSheet() {
+        _uiState.update { it.copy(showDensityDetailSheet = false) }
     }
 
     fun onAdvancedControlsClick() {
@@ -122,7 +137,8 @@ class HomeViewModel @Inject constructor(
             showDevOptionsInstructions = false,
             showAnimationInstructions = false,
             showDensityInstructions = false,
-            showDensityDevOptionsDisabled = false
+            showDensityDevOptionsDisabled = false,
+            showDensityDetailSheet = false
         ) }
     }
 

@@ -25,4 +25,10 @@ abstract class RepositoryModule {
     abstract fun bindAnimationRepository(
         impl: AnimationRepositoryImpl
     ): AnimationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDisplayDensityRepository(
+        impl: com.devtune.data.repository.DisplayDensityRepositoryImpl
+    ): com.devtune.domain.repository.DisplayDensityRepository
 }

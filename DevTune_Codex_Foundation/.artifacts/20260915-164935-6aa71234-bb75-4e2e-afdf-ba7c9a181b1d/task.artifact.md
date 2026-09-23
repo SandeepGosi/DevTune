@@ -1,21 +1,24 @@
-# Task: M4 — Shizuku Foundation
+# Task Management — Milestone M6: Read-Only Display Density Monitoring
 
-- [/] M4 Research & Planning
-	- [x] Research Shizuku API (Version 13.1.5)
-	- [x] Create implementation plan
-- [ ] M4 Implementation
-	- [ ] Add Shizuku dependency
-	- [ ] Create Domain Models (ShizukuState, ShizukuBackend)
-	- [ ] Create ShizukuProvider interface (Platform layer)
-	- [ ] Implement AndroidShizukuProvider
-	- [ ] Implement ShizukuRepository and Use Cases
-	- [ ] Update HomeViewModel to observe Shizuku state
-	- [ ] Update Home screen "Advanced Controls" card
-	- [ ] Create Shizuku Information screen (optional navigation)
-- [ ] M4 Verification
-	- [ ] Unit tests for state mapping
-	- [ ] Instrumentation tests (if possible)
-	- [ ] Build, Lint, and Quality Gate
-- [ ] M4 Documentation
-	- [ ] Create ADR-003 for Shizuku Integration
-	- [ ] Final Commit & Report
+- [/] Phase 1: Planning & Implementation Setup
+- [ ] Phase 2: Domain Layer Implementation
+  - [ ] Create `DisplayDensityInfo.kt` domain model
+  - [ ] Create `DisplayDensityRepository.kt` interface
+  - [ ] Create `GetDisplayDensityInfoUseCase.kt`
+- [ ] Phase 3: Platform & Data Layer Implementation
+  - [ ] Create `DisplayDensityProvider.kt` boundary
+  - [ ] Create `AndroidDisplayDensityProvider.kt` platform provider using public SDK APIs
+  - [ ] Create `DisplayDensityRepositoryImpl.kt`
+  - [ ] Update DI modules (`RepositoryModule.kt` & `PlatformModule.kt`)
+- [ ] Phase 4: Presentation Layer Implementation
+  - [ ] Update `HomeViewModel.kt` to expose `DisplayDensityInfo` state flow
+  - [ ] Update `HomeScreen.kt` with compact "Display Density" card & detail sheet
+  - [ ] Add explicit read-only explanation dialog (no Shizuku write prompt)
+- [ ] Phase 5: Documentation
+  - [ ] Create `docs/decisions/ADR-005-display-density.md`
+- [ ] Phase 6: Testing & Quality Gate Verification
+  - [ ] Add unit tests (`DisplayDensityInfoTest.kt`, `DisplayDensityRepositoryTest.kt`)
+  - [ ] Add instrumentation test (`DisplayDensityRuntimeTest.kt`)
+  - [ ] Run `assembleDebug`, `assembleRelease`, `testDebugUnitTest`, `lintDebug`
+  - [ ] Execute runtime test on `emulator-5554` and record metrics
+- [ ] Phase 7: Git Commit & Final Report

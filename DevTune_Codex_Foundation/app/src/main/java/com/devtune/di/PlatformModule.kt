@@ -42,4 +42,10 @@ abstract class PlatformModule {
     abstract fun bindShizukuRepository(
         impl: ShizukuRepositoryImpl
     ): ShizukuRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDisplayDensityProvider(
+        impl: com.devtune.platform.AndroidDisplayDensityProvider
+    ): com.devtune.platform.DisplayDensityProvider
 }

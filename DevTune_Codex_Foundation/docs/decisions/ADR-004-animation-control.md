@@ -1,50 +1,46 @@
-# ADR-004: Controlled Animation Write Experiment
+# ADR-004: Controlled Animation Setting Writes & Capability Gating
 
 ## Status
-Proposed
+Proposed (Pending Runtime Verification)
 
 ## Context
-Milestone M5 aims to establish safe and reversible modification of Android animation settings via Shizuku. The target settings are:
+Milestone M5 investigates whether DevTune can safely READ, WRITE, VERIFY, and RESTORE Android animation settings through Shizuku:
 * `Settings.Global.WINDOW_ANIMATION_SCALE`
 * `Settings.Global.TRANSITION_ANIMATION_SCALE`
 * `Settings.Global.ANIMATOR_DURATION_SCALE`
 
-## Constraints
-1. **Safety Boundary**: No shell commands, no root, no hidden APIs, no reflection.
-2. **Architecture**: Clean Architecture must be preserved.
-3. **Reversibility**: Original values must be captured, verified, and restored.
-4. **Transparency**: Actual read-back verification is required for success reporting.
+## Technical Analysis of Write Mechanisms
 
-## Decision: Implementation Path for Privileged Writes
+### 1. App-Process ContentResolver (`Settings.Global.putFloat`)
+* **Mechanism**: Standard public SDK API called directly in the application process.
+* **Result**: **FAILS** with `SecurityException: Permission denial: writing to settings requires android.permission.WRITE_SECURE_SETTINGS`.
+* **Reason**: Third-party applications run under an unprivileged UID (e.g., `10xxx`), which lacks `WRITE_SECURE_SETTINGS`. The app process cannot acquire this signature permission at runtime.
 
-### 1. Analysis of Public SDK APIs
-The standard way to modify global settings is `Settings.Global.putFloat(ContentResolver, String, float)`. However, this requires the `android.permission.WRITE_SECURE_SETTINGS` permission. Since DevTune is a 3rd party app, it cannot hold this signature-level permission. Calling this API from the app process results in a `SecurityException`.
+### 2. Shizuku Binder Wrapping (`ShizukuBinderWrapper` + `IWindowManager`)
+* **Mechanism**: Wrapping the system's `window` service binder (`Shizuku.getService("window")`) and invoking `IWindowManager.setAnimationScale(int, float)`.
+* **Result**: Direct IPC to `WindowManagerService`.
+* **Pros**: Requires no separate process or custom AIDL service.
+* **Cons**: Uses an internal `@hide` platform AIDL interface (`com.android.view.IWindowManager`), which is not part of the public Android SDK.
 
-### 2. Analysis of Shizuku Capabilities
-Shizuku provides privileged access by attributing calls to the Shell (UID 2000) or Root (UID 0) identities. There are three primary ways to use Shizuku for this:
-1. **Shell Commands**: Using `cmd settings put global ...`. (FORBIDDEN by safety boundary).
-2. **Binder Wrapping**: Wrapping a system service binder (e.g., `window`). This requires adding hidden system AIDL files to the project, which is brittle and involves "Hidden APIs".
-3. **User Service (AIDL)**: Spawning a process with Shell/Root identity that can run Java code. This process can call the public `Settings.Global.putFloat` API because it holds the necessary permission.
+### 3. Shizuku User Service (`Shizuku.bindUserService` + `IAnimationService.aidl`)
+* **Mechanism**: Spawning a dedicated process via Shizuku (`app_process`) running under Shell (UID 2000) or Root (UID 0). The remote process calls `Settings.Global.putFloat(context.contentResolver, ...)`.
+* **Result**: Successful write using **public SDK APIs** (`Settings.Global.putFloat`), because the calling UID in the remote process is UID 2000 / UID 0 (which holds `WRITE_SECURE_SETTINGS`).
+* **Security Boundary**: The custom AIDL (`IAnimationService`) exposes strictly typed animation write operations (`writeScale(name, value)`) and explicitly forbids generic command execution or shell execution.
 
-### 3. Selection: Shizuku User Service
-We have selected the **Shizuku User Service** path as the most compliant and robust approach for M5. 
+## Decision: Architectural Choice
+We selected the **Shizuku User Service** approach with a narrow custom AIDL interface (`IAnimationService`).
 
-**Rationale**:
-* **Safety**: It avoids arbitrary shell command execution.
-* **Public APIs**: The privileged process uses the public, stable `Settings.Global` API.
-* **Stability**: It does not depend on version-specific system AIDL definitions or transaction IDs.
-* **Architecture**: It follows the recommended Shizuku pattern for complex logic.
+### Rationale:
+1. **Public API Integrity**: The write operation itself uses the official, public `Settings.Global.putFloat` SDK API rather than uncommitted platform AIDL methods.
+2. **Security**: The custom AIDL exposes ONLY `writeScale(name, value)` and contains zero arbitrary execution vectors.
+3. **No Shell**: It completely avoids `Runtime.exec()`, `ProcessBuilder`, or `Shizuku.newProcess()`.
 
-We have determined that a public API path *within the app process* is impossible due to Android's UID-based security model. Therefore, a remote service with a simple custom AIDL is necessary to bridge the privilege gap.
+## Capability Gating & Persistence Rule
+* **No Premature Availability**: `WRITE_ANIMATION_SETTINGS` MUST NOT be marked `AVAILABLE` merely because Shizuku is authorized or the User Service connects.
+* **Experiment Requirement**: Availability requires real-world execution of the complete cycle:
+  `READ` -> `WRITE (0.5x)` -> `READ-BACK VERIFY` -> `RESTORE` -> `READ-BACK VERIFY`.
+* **Dynamic Evaluation**: Capability persistence in `DataStore` stores diagnostic metadata (`lastVerifiedBackend`, `lastVerifiedAndroidVersion`, `lastVerifiedAt`, `lastVerifiedSuccess`). Current capability is dynamically evaluated: if the current Shizuku backend or Android SDK version differs from the verified run, capability falls back to `RESTRICTED`.
 
-## Experimental Flow
-1. **Pre-Read**: Capture all 3 scales via standard `ContentResolver`.
-2. **Write**: Attempt to set `WINDOW_ANIMATION_SCALE` to 0.5 via the User Service.
-3. **Verify**: Read the value back via `ContentResolver`.
-4. **Restore**: Restore all 3 original scales via the User Service.
-5. **Post-Verify**: Read back all 3 values to ensure system state is returned to original.
-
-## Consequences
-* A small AIDL file will be introduced for communication between the app and the User Service.
-* The application will manifest a `Service` entry for Shizuku's provider (already done in M4).
-* The `WRITE_ANIMATION_SETTINGS` capability will only be marked `AVAILABLE` if the above experiment succeeds at runtime.
+## Runtime Verification Status
+* **Status**: **PENDING**
+* **Reason**: Shizuku is not installed or configured on the current test emulator instance. Real-world execution must occur on a Shizuku-enabled runtime before M5 can be marked fully approved.

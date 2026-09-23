@@ -11,7 +11,10 @@ class UserPreferencesTest {
             themeMode = ThemeMode.SYSTEM.name,
             useDynamicColor = true,
             isOnboardingCompleted = false,
-            isAnimationWriteVerified = false
+            lastVerifiedBackend = "NONE",
+            lastVerifiedAndroidVersion = 0,
+            lastVerifiedAt = 0L,
+            lastVerifiedSuccess = false
         )
 
         assertEquals(ThemeMode.SYSTEM.name, preferences.themeMode)

@@ -7,5 +7,5 @@ interface UserPreferencesRepository {
     val userPreferences: Flow<UserPreferences>
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setThemeMode(themeMode: String)
-    suspend fun setAnimationWriteVerified(verified: Boolean)
+    suspend fun recordAnimationWriteVerification(backend: String, androidVersion: Int, success: Boolean)
 }
