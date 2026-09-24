@@ -8,14 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.devtune.R
 import com.devtune.domain.model.AnimationExperimentResult
+import com.devtune.domain.model.AnimationScales
 import com.devtune.domain.model.CapabilityState
 import com.devtune.domain.model.ShizukuState
 import com.devtune.domain.model.SystemState
@@ -28,7 +25,7 @@ fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     HomeScreen(
         uiState = uiState,
         onNavigateToSettings = onNavigateToSettings,
@@ -37,6 +34,9 @@ fun HomeRoute(
         onDensitySettingsClick = viewModel::onDensitySettingsClick,
         onAdvancedControlsClick = viewModel::onAdvancedControlsClick,
         onRunAnimationExperiment = viewModel::onRunAnimationExperiment,
+        onApplyAnimationScales = viewModel::onApplyAnimationScales,
+        onApplyAnimationProfile = viewModel::onApplyAnimationProfile,
+        onClearUserMessage = viewModel::onClearUserMessage,
         onDismissExperimentResult = viewModel::onDismissExperimentResult,
         onDismissInstructions = viewModel::onDismissInstructions,
         onConfirmOpenDeviceInfo = viewModel::onOpenDeviceInfoClick,
@@ -55,6 +55,9 @@ fun HomeScreen(
     onDensitySettingsClick: () -> Unit,
     onAdvancedControlsClick: () -> Unit,
     onRunAnimationExperiment: () -> Unit,
+    onApplyAnimationScales: (Float, Float, Float) -> Unit,
+    onApplyAnimationProfile: (AnimationScales) -> Unit,
+    onClearUserMessage: () -> Unit,
     onDismissExperimentResult: () -> Unit,
     onDismissInstructions: () -> Unit,
     onConfirmOpenDeviceInfo: () -> Unit,
@@ -62,6 +65,14 @@ fun HomeScreen(
     onConfirmOpenDisplaySettings: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.userMessage) {
+        uiState.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onClearUserMessage()
+        }
+    }
 
     if (uiState.experimentResult != null) {
         ExperimentResultDialog(
@@ -69,7 +80,6 @@ fun HomeScreen(
             onDismiss = onDismissExperimentResult
         )
     }
-
 
     if (uiState.showDensityDetailSheet && uiState.displayDensityInfo != null) {
         DisplayDensityDetailSheet(
@@ -93,26 +103,11 @@ fun HomeScreen(
         )
     }
 
-    if (uiState.showDensityInstructions) {
-        DensitySettingsInstructionDialog(
-            onDismiss = onDismissInstructions,
-            onConfirm = onConfirmOpenDisplaySettings
-        )
-    }
-
-    if (uiState.showDensityDevOptionsDisabled) {
-        DensityDevOptionsDisabledDialog(
-            onDismiss = onDismissInstructions,
-            onLearnHowToEnable = onOpenDevOptions,
-            onOpenDisplaySettings = onConfirmOpenDisplaySettings
-        )
-    }
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DevTuneTopAppBar(
-                title = "", // Branding in header
+                title = "",
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
@@ -121,6 +116,7 @@ fun HomeScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -134,7 +130,9 @@ fun HomeScreen(
                 onAnimationSettingsClick = onAnimationSettingsClick,
                 onDensitySettingsClick = onDensitySettingsClick,
                 onAdvancedControlsClick = onAdvancedControlsClick,
-                onRunAnimationExperiment = onRunAnimationExperiment
+                onRunAnimationExperiment = onRunAnimationExperiment,
+                onApplyAnimationScales = onApplyAnimationScales,
+                onApplyAnimationProfile = onApplyAnimationProfile
             )
         }
     }
@@ -148,9 +146,10 @@ private fun HomeContent(
     onAnimationSettingsClick: () -> Unit,
     onDensitySettingsClick: () -> Unit,
     onAdvancedControlsClick: () -> Unit,
-    onRunAnimationExperiment: () -> Unit
+    onRunAnimationExperiment: () -> Unit,
+    onApplyAnimationScales: (Float, Float, Float) -> Unit,
+    onApplyAnimationProfile: (AnimationScales) -> Unit
 ) {
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -165,14 +164,12 @@ private fun HomeContent(
             DashboardHeader()
         }
 
-        // System Status Hero Card
         item {
             uiState.systemState?.let { state ->
-                SystemStatusHero(state)
+                SystemStatusHero(state, uiState.shizukuState)
             }
         }
 
-        // Primary Controls
         item {
             Text(
                 text = "System Controls",
@@ -191,22 +188,22 @@ private fun HomeContent(
                 ) {
                     FeatureCard(
                         title = "Developer Options",
-                        supportingText = if (state.isDeveloperOptionsEnabled) 
+                        supportingText = if (state.isDeveloperOptionsEnabled)
                             "Tap to open Developer Options" else "Tap to learn how to enable",
                         icon = Icons.Default.Build,
                         onClick = onOpenDevOptions
                     ) {
                         StatusBadge(
                             text = if (state.isDeveloperOptionsEnabled) "Enabled" else "Disabled",
-                            color = if (state.isDeveloperOptionsEnabled) 
+                            color = if (state.isDeveloperOptionsEnabled)
                                 MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                         )
                     }
 
                     FeatureCard(
                         title = "Display Density",
-                        supportingText = uiState.displayDensityInfo?.let { 
-                            "${it.smallestWidthDp} dp smallest width · ${it.resolutionString}" 
+                        supportingText = uiState.displayDensityInfo?.let {
+                            "${it.smallestWidthDp} dp smallest width · ${it.resolutionString}"
                         } ?: "Current system metrics",
                         icon = Icons.Default.AspectRatio,
                         onClick = onDensitySettingsClick
@@ -238,64 +235,24 @@ private fun HomeContent(
                         }
                     }
 
-                    FeatureCard(
-                        title = "Animation Scales",
-                        supportingText = when {
-                            uiState.writeAnimationCapability == CapabilityState.AVAILABLE -> "Advanced animation control verified"
-                            uiState.shizukuState is ShizukuState.Authorized -> "Verification required for advanced control"
-                            uiState.shizukuState is ShizukuState.PermissionRequired -> "Permission required for advanced control"
-                            else -> "Read-only without advanced system access"
-                        },
-                        icon = Icons.Default.Speed,
-                        tonalElevation = 1.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
-                        ) {
-                            AnimationValue(label = "Window", value = state.animationSettings?.windowScale ?: 1f)
-                            AnimationValue(label = "Transition", value = state.animationSettings?.transitionScale ?: 1f)
-                            AnimationValue(label = "Animator", value = state.animationSettings?.animatorDurationScale ?: 1f)
-                        }
-                        
-                        Spacer(modifier = Modifier.height(DevTuneTheme.spacing.medium))
-                        
-                        if (uiState.shizukuState is ShizukuState.Authorized) {
-                            Button(
-                                onClick = onRunAnimationExperiment,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
-                                enabled = !uiState.isExperimentRunning
-                            ) {
-                                if (uiState.isExperimentRunning) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
-                                    Text("Verifying...")
-                                } else {
-                                    Text("Test Animation Control")
-                                }
-                            }
-                        } else {
-                            Button(
-                                onClick = onAnimationSettingsClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text("Open Developer Options")
-                            }
-                        }
-                    }
+                    // Production Advanced Animation Scale Control Card
+                    AnimationScalesCard(
+                        uiState = uiState,
+                        onAnimationSettingsClick = onAnimationSettingsClick,
+                        onRunAnimationExperiment = onRunAnimationExperiment,
+                        onApplyAnimationScales = onApplyAnimationScales,
+                        onApplyAnimationProfile = onApplyAnimationProfile
+                    )
                 }
             }
         }
 
-        // Extension Points
         item {
-            ProfilesPreviewModule()
+            ProfilesPreviewModule(
+                currentScales = uiState.animationScales,
+                isAdvancedMode = uiState.shizukuState is ShizukuState.Authorized,
+                onApplyProfile = onApplyAnimationProfile
+            )
         }
 
         item {
@@ -307,14 +264,154 @@ private fun HomeContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SystemStatusHero(state: SystemState) {
+private fun AnimationScalesCard(
+    uiState: HomeUiState,
+    onAnimationSettingsClick: () -> Unit,
+    onRunAnimationExperiment: () -> Unit,
+    onApplyAnimationScales: (Float, Float, Float) -> Unit,
+    onApplyAnimationProfile: (AnimationScales) -> Unit
+) {
+    val isAdvancedMode = uiState.shizukuState is ShizukuState.Authorized
+    var selectedWindow by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.windowScale) }
+    var selectedTransition by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.transitionScale) }
+    var selectedAnimator by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.animatorScale) }
+
+    val presetValues = listOf(0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f)
+
+    FeatureCard(
+        title = "Animation Scales",
+        supportingText = when {
+            isAdvancedMode -> "Advanced mode active · Privileged Binder controls"
+            uiState.shizukuState is ShizukuState.PermissionRequired -> "Authorization required for advanced controls"
+            else -> "Read-only without Shizuku authorization"
+        },
+        icon = Icons.Default.Speed,
+        tonalElevation = 1.dp
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
+            ) {
+                AnimationValue(label = "Window", value = uiState.animationScales.windowScale)
+                AnimationValue(label = "Transition", value = uiState.animationScales.transitionScale)
+                AnimationValue(label = "Animator", value = uiState.animationScales.animatorScale)
+            }
+
+            if (isAdvancedMode) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                Text(
+                    text = "Window Animation Scale",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    presetValues.forEach { scale ->
+                        FilterChip(
+                            selected = selectedWindow == scale,
+                            onClick = { selectedWindow = scale },
+                            label = { Text("${scale}x") }
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Transition Animation Scale",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    presetValues.forEach { scale ->
+                        FilterChip(
+                            selected = selectedTransition == scale,
+                            onClick = { selectedTransition = scale },
+                            label = { Text("${scale}x") }
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Animator Duration Scale",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    presetValues.forEach { scale ->
+                        FilterChip(
+                            selected = selectedAnimator == scale,
+                            onClick = { selectedAnimator = scale },
+                            label = { Text("${scale}x") }
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
+                ) {
+                    Button(
+                        onClick = { onApplyAnimationScales(selectedWindow, selectedTransition, selectedAnimator) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isApplyingAnimation
+                    ) {
+                        if (uiState.isApplyingAnimation) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
+                            Text("Applying...")
+                        } else {
+                            Text("Apply Animation Scales")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onRunAnimationExperiment,
+                        enabled = !uiState.isExperimentRunning
+                    ) {
+                        if (uiState.isExperimentRunning) {
+                            Text("Verifying...")
+                        } else {
+                            Text("Verify Control")
+                        }
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onAnimationSettingsClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text("Open Developer Options")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SystemStatusHero(state: SystemState, shizukuState: ShizukuState) {
+    val isAdvanced = shizukuState is ShizukuState.Authorized
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = DevTuneTheme.spacing.screenPadding),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = if (isAdvanced) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
         ),
         shape = MaterialTheme.shapes.extraLarge,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -334,29 +431,29 @@ private fun SystemStatusHero(state: SystemState) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
                 )
                 StatusBadge(
-                    text = "Standard Mode",
-                    color = MaterialTheme.colorScheme.primary
+                    text = if (isAdvanced) "Advanced Mode" else "Standard Mode",
+                    color = if (isAdvanced) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(DevTuneTheme.spacing.small))
-            
+
             Text(
-                text = if (state.isDeveloperOptionsEnabled) "Developer settings are available" else "Standard Android configuration",
+                text = if (isAdvanced) "Shizuku privileged control active" else if (state.isDeveloperOptionsEnabled) "Developer settings available" else "Standard Android configuration",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Spacer(modifier = Modifier.height(DevTuneTheme.spacing.large))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 HeroStat(label = "Density", value = "${state.displayDensityDpi} DPI")
                 HeroStat(label = "Animations", value = state.animationSettings?.let { "${it.windowScale}x" } ?: "1.0x")
-                HeroStat(label = "Options", value = if (state.isDeveloperOptionsEnabled) "ON" else "OFF")
+                HeroStat(label = "Mode", value = if (isAdvanced) "ADVANCED" else "STANDARD")
             }
         }
     }
@@ -380,7 +477,11 @@ private fun HeroStat(label: String, value: String) {
 }
 
 @Composable
-private fun ProfilesPreviewModule() {
+private fun ProfilesPreviewModule(
+    currentScales: AnimationScales,
+    isAdvancedMode: Boolean,
+    onApplyProfile: (AnimationScales) -> Unit
+) {
     Column(
         modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.screenPadding),
         verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
@@ -392,28 +493,51 @@ private fun ProfilesPreviewModule() {
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
         )
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
         ) {
-            ProfileChip(name = "Default", value = "1.0x", selected = true, modifier = Modifier.weight(1f))
-            ProfileChip(name = "Fast", value = "0.5x", modifier = Modifier.weight(1f))
-            ProfileChip(name = "No Anim", value = "0x", modifier = Modifier.weight(1f))
+            ProfileChip(
+                name = "Default",
+                value = "1.0x",
+                selected = currentScales == AnimationScales.DEFAULT,
+                enabled = isAdvancedMode,
+                onClick = { onApplyProfile(AnimationScales.DEFAULT) },
+                modifier = Modifier.weight(1f)
+            )
+            ProfileChip(
+                name = "Fast",
+                value = "0.5x",
+                selected = currentScales == AnimationScales.FAST,
+                enabled = isAdvancedMode,
+                onClick = { onApplyProfile(AnimationScales.FAST) },
+                modifier = Modifier.weight(1f)
+            )
+            ProfileChip(
+                name = "No Anim",
+                value = "0x",
+                selected = currentScales == AnimationScales.NO_ANIMATIONS,
+                enabled = isAdvancedMode,
+                onClick = { onApplyProfile(AnimationScales.NO_ANIMATIONS) },
+                modifier = Modifier.weight(1f)
+            )
         }
-        
-        Text(
-            text = "Animation presets",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.padding(start = DevTuneTheme.spacing.extraSmall)
-        )
     }
 }
 
 @Composable
-private fun ProfileChip(name: String, value: String, selected: Boolean = false, modifier: Modifier = Modifier) {
+private fun ProfileChip(
+    name: String,
+    value: String,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     Surface(
+        onClick = onClick,
+        enabled = enabled,
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
@@ -434,13 +558,13 @@ private fun AdvancedControlsModule(
     state: ShizukuState,
     onClick: () -> Unit
 ) {
-    val (statusTitle, statusDescription, statusColor) = when (state) {
-        is ShizukuState.NotInstalled -> Triple("Shizuku not detected", "Unlock advanced system controls", MaterialTheme.colorScheme.outline)
-        is ShizukuState.Stopped -> Triple("Shizuku not running", "Service is stopped", MaterialTheme.colorScheme.error)
-        is ShizukuState.PermissionRequired -> Triple("Permission required", "Tap to grant Shizuku access", MaterialTheme.colorScheme.secondary)
-        is ShizukuState.Authorized -> Triple("Advanced system access", "Shizuku connected via ${state.backend.name}", MaterialTheme.colorScheme.primary)
-        is ShizukuState.ConnectionLost -> Triple("Connection lost", "Shizuku service disconnected", MaterialTheme.colorScheme.error)
-        else -> Triple("Advanced Controls", "Unknown Shizuku state", MaterialTheme.colorScheme.outline)
+    val (statusTitle, statusDescription) = when (state) {
+        is ShizukuState.NotInstalled -> Pair("Shizuku not detected", "Unlock advanced system controls")
+        is ShizukuState.Stopped -> Pair("Shizuku not running", "Service is stopped")
+        is ShizukuState.PermissionRequired -> Pair("Permission required", "Tap to grant Shizuku access")
+        is ShizukuState.Authorized -> Pair("Advanced system access", "Shizuku connected via ${state.backend.name}")
+        is ShizukuState.ConnectionLost -> Pair("Connection lost", "Shizuku service disconnected")
+        else -> Pair("Advanced Controls", "Unknown Shizuku state")
     }
 
     Card(
@@ -484,7 +608,7 @@ private fun AdvancedControlsModule(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             if (state is ShizukuState.PermissionRequired) {
                 Icon(
                     Icons.Default.ChevronRight,
@@ -514,9 +638,8 @@ private fun AnimationSettingsInstructionDialog(
         title = { Text("Animation Settings") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
-                Text("Android does not provide a public direct link to these individual settings on this device.")
-                Text("You can find them manually in Developer Options:")
-                
+                Text("Android requires Developer Options or Shizuku authorization for animation controls.")
+                Text("In Developer Options:")
                 val bullet = "\u2022"
                 Text("$bullet Window animation scale", style = MaterialTheme.typography.bodySmall)
                 Text("$bullet Transition animation scale", style = MaterialTheme.typography.bodySmall)
@@ -537,34 +660,6 @@ private fun AnimationSettingsInstructionDialog(
 }
 
 @Composable
-private fun DensitySettingsInstructionDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Display Density") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
-                Text("Android does not provide a public direct link to this specific setting on this device.")
-                Text("Advanced display-density controls such as Smallest width are available through Developer Options.")
-                Text("Generic display settings may also contain 'Display size'.")
-            }
-        },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text("Open Display Settings")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
 private fun ExperimentResultDialog(
     result: AnimationExperimentResult,
     onDismiss: () -> Unit
@@ -572,28 +667,17 @@ private fun ExperimentResultDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (result is AnimationExperimentResult.Success) "Test Successful" else "Test Failed")
+            Text(if (result is AnimationExperimentResult.Success) "Verification Successful" else "Verification Failed")
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
                 when (result) {
                     is AnimationExperimentResult.Success -> {
-                        Text("DevTune successfully modified and restored your animation settings.")
-                        Text("Original: ${result.originalScales.windowScale}x")
-                        Text("Test Write: ${result.testValue}x")
-                        Text("Read Back: ${result.readBackValue}x")
-                        Text("Restored: ${result.restoredScales.windowScale}x")
-                        Text("\nAdvanced animation control is now enabled.", fontWeight = FontWeight.Bold)
+                        Text("DevTune successfully verified privileged WindowManager animation scale controls.")
+                        Text("\nAdvanced animation control is active.", fontWeight = FontWeight.Bold)
                     }
                     is AnimationExperimentResult.Failure -> {
-                        Text("The test failed at the ${result.stage.name} stage.")
-                        Text("Error: ${result.message}")
-                        if (result.originalScales != null) {
-                            Text("Your original settings were: ${result.originalScales.windowScale}x")
-                        }
-                        if (result.currentScales != null) {
-                            Text("Current system values: ${result.currentScales.windowScale}x")
-                        }
+                        Text("Verification failed: ${result.message}")
                         Text("\nAdvanced control remains restricted.", color = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -602,42 +686,6 @@ private fun ExperimentResultDialog(
         confirmButton = {
             Button(onClick = onDismiss) {
                 Text("Close")
-            }
-        }
-    )
-}
-
-@Composable
-private fun DensityDevOptionsDisabledDialog(
-    onDismiss: () -> Unit,
-    onLearnHowToEnable: () -> Unit,
-    onOpenDisplaySettings: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Developer Options is disabled") },
-        text = {
-            Text("Advanced display-density controls such as Smallest width are available through Developer Options.")
-        },
-        confirmButton = {
-            Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)) {
-                Button(
-                    onClick = onLearnHowToEnable,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Learn how to enable")
-                }
-                OutlinedButton(
-                    onClick = onOpenDisplaySettings,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Open Display Settings")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
             }
         }
     )
@@ -670,7 +718,7 @@ private fun DisplayDensityDetailSheet(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ) {
                     Text(
-                        text = "Changing display density requires system-level access that is not supported by DevTune on this Android configuration.",
+                        text = "Display density writes are restricted on this Android version.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(DevTuneTheme.spacing.medium)

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface AnimationRepository {
     fun getAnimationScales(): Flow<AnimationScales>
-    suspend fun writeWindowAnimationScale(scale: Float): Boolean
-    suspend fun restoreAnimationScales(scales: AnimationScales): Boolean
+    suspend fun setAnimationScale(which: Int, scale: Float): Result<Unit>
+    suspend fun applyAnimationScales(scales: AnimationScales): Result<Unit>
+    suspend fun verifyAnimationWriteCapability(): Result<Unit>
 }

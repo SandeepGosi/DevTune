@@ -1,13 +1,12 @@
 package com.devtune
 
-import android.content.Context
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.devtune.data.repository.AnimationRepositoryImpl
-import com.devtune.domain.model.AnimationExperimentResult
 import com.devtune.domain.usecase.VerifyAnimationWriteUseCase
-import com.devtune.platform.shizuku.ShizukuAnimationProvider
+import com.devtune.platform.AndroidSystemControlProvider
+import com.devtune.platform.shizuku.ShizukuPrivilegedBridge
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -20,7 +19,7 @@ class AnimationExperimentRuntimeTest {
     @Test
     fun executeAnimationExperimentRuntime() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        
+
         val isInstalled = try {
             context.packageManager.getPackageInfo("moe.shizuku.privileged.api", 0)
             true
@@ -57,7 +56,6 @@ class AnimationExperimentRuntimeTest {
         println("Shizuku UID: $uid")
         println("Shizuku Permission Granted: $isGranted")
 
-        // Pre-read original values directly from Settings.Global
         val origWindow = Settings.Global.getFloat(context.contentResolver, Settings.Global.WINDOW_ANIMATION_SCALE, 1f)
         val origTransition = Settings.Global.getFloat(context.contentResolver, Settings.Global.TRANSITION_ANIMATION_SCALE, 1f)
         val origAnimator = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
@@ -73,32 +71,16 @@ class AnimationExperimentRuntimeTest {
             return
         }
 
-        val provider = ShizukuAnimationProvider(context)
-        val repository = AnimationRepositoryImpl(provider)
+        val provider = AndroidSystemControlProvider(context)
+        val bridge = ShizukuPrivilegedBridge()
+        val repository = AnimationRepositoryImpl(provider, bridge)
         val useCase = VerifyAnimationWriteUseCase(repository)
 
         val result = runBlocking { useCase() }
 
         println("=== EXPERIMENT EXECUTION ===")
-        println("Result Type: ${result.javaClass.simpleName}")
+        println("Result: ${if (result.isSuccess) "PASS" else "FAIL"}")
 
-        when (result) {
-            is AnimationExperimentResult.Success -> {
-                println("Requested WINDOW_ANIMATION_SCALE: ${result.testValue}")
-                println("Read-back WINDOW_ANIMATION_SCALE: ${result.readBackValue}")
-                println("Read-back Verification: MATCH")
-                println("Restored WINDOW_ANIMATION_SCALE: ${result.restoredScales.windowScale}")
-                println("Restored TRANSITION_ANIMATION_SCALE: ${result.restoredScales.transitionScale}")
-                println("Restored ANIMATOR_DURATION_SCALE: ${result.restoredScales.animatorScale}")
-                println("Restoration Verification: MATCH")
-            }
-            is AnimationExperimentResult.Failure -> {
-                println("Stage: ${result.stage}")
-                println("Message: ${result.message}")
-            }
-        }
-
-        // Post-test final read
         val finalWindow = Settings.Global.getFloat(context.contentResolver, Settings.Global.WINDOW_ANIMATION_SCALE, 1f)
         val finalTransition = Settings.Global.getFloat(context.contentResolver, Settings.Global.TRANSITION_ANIMATION_SCALE, 1f)
         val finalAnimator = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)

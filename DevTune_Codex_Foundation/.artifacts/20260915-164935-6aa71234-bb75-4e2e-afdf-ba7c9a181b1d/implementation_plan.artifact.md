@@ -1,86 +1,100 @@
-# Implementation Plan — Milestone M6: Read-Only Display Density Monitoring
+# Implementation Plan — Milestone M5A: Production Shizuku Animation Controls
 
-Implement comprehensive, production-quality, read-only display density monitoring in DevTune.
+Convert the proven M5 privileged animation Binder path into a production-quality DevTune Advanced Mode feature with Clean Architecture, robust error handling, dynamic capability gating, rollback safety, and polished Material 3 Compose UI controls.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> Milestone M6 strictly implements **READ-ONLY** display density monitoring. Write capability (`WRITE_DISPLAY_DENSITY`) is classified as `RESTRICTED / UNSUPPORTED` based on Phase 1 research. No system settings will be modified, and no hidden APIs, reflection, or shell commands will be used.
+> Milestone M5A strictly implements **PRODUCTION PRIVILEGED ANIMATION CONTROLS ONLY**. Display density write remains classified as `RESTRICTED / UNSUPPORTED` per M6 findings. All privileged animation operations transact directly with `WindowManagerService` via `ShizukuBinderWrapper` + `IWindowManager.setAnimationScale()` under Shizuku's UID 2000 (`shell`) identity. No shell commands (`Runtime.exec`, `ProcessBuilder`, `Shizuku.newProcess`, `rish`), no package spoofing, and no reflection are used.
 
 ## Proposed Changes
 
 ### Domain Layer
 
-#### [NEW] [DisplayDensityInfo.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/DisplayDensityInfo.kt)
-- Represents strongly typed logical density metrics:
-  - `currentDensityDpi`: Int
-  - `densityScale`: Float (`currentDensityDpi / 160.0f`)
-  - `widthPx`: Int
-  - `heightPx`: Int
-  - `smallestWidthDp`: Int
-  - `configurationDensityDpi`: Int
-  - `displayMetricsDensityDpi`: Int
-  - `forcedDensityDpi`: Int? (nullable)
+#### [AnimationScales.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/AnimationScales.kt)
+- Strongly typed domain model representing Window, Transition, and Animator scales.
+- Implements value range validation (`0.0f..10.0f`), rejecting `NaN`, positive/negative infinity, and out-of-range values.
 
-#### [NEW] [DisplayDensityRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/DisplayDensityRepository.kt)
-- Read-only interface emitting `Flow<DisplayDensityInfo>`.
+#### [NEW] [AnimationError.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/model/AnimationError.kt)
+- Sealed class representing typed domain/application errors: `ShizukuUnavailable`, `ShizukuPermissionRequired`, `BinderUnavailable`, `InvalidScaleValue`, `WriteFailed`, `ReadBackFailed`, `RestorationFailed`.
 
-#### [NEW] [GetDisplayDensityInfoUseCase.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/GetDisplayDensityInfoUseCase.kt)
-- Use case for retrieving `DisplayDensityInfo`.
+#### [AnimationRepository.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/repository/AnimationRepository.kt)
+- Boundary interface declaring read and privileged write operations:
+  - `fun getAnimationScales(): Flow<AnimationScales>`
+  - `suspend fun setAnimationScale(which: Int, scale: Float): Result<Unit>`
+  - `suspend fun applyAnimationScales(scales: AnimationScales): Result<Unit>` (includes pre-read, write, verification, and automatic rollback protection)
+  - `suspend fun verifyAnimationWriteCapability(): Result<Unit>`
+
+#### [VerifyAnimationWriteUseCase.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/VerifyAnimationWriteUseCase.kt)
+- Executes controlled write-verification cycle (pre-reads original, writes Window scale to `0.5x`, verifies read-back, restores original, verifies restoration).
+- Used by `PlatformCapabilitiesUseCase` to dynamically grant `WRITE_ANIMATION_SETTINGS = AVAILABLE`.
+
+#### [NEW] [SetAnimationScalesUseCase.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/domain/usecase/SetAnimationScalesUseCase.kt)
+- Use case for validating input scales and delegating application to `AnimationRepository` with rollback safety.
 
 ---
 
 ### Platform & Data Layer
 
-#### [NEW] [DisplayDensityProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/DisplayDensityProvider.kt)
-- Boundary for public SDK display density inspection.
+#### [PrivilegedSystemBridge.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/shizuku/PrivilegedSystemBridge.kt)
+- Isolated boundary interface for privileged WindowManager operations:
+  - `fun isShizukuReady(): Boolean`
+  - `fun getShizukuBackend(): String?`
+  - `fun getShizukuUid(): Int`
+  - `suspend fun setAnimationScale(which: Int, scale: Float): Result<Unit>`
+  - `suspend fun setAnimationScales(window: Float, transition: Float, animator: Float): Result<Unit>`
 
-#### [NEW] [AndroidDisplayDensityProvider.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/AndroidDisplayDensityProvider.kt)
-- Implementation using `Resources.displayMetrics`, `Resources.configuration`, and public `Settings.Secure.getString` for `"display_density_forced"`.
+#### [ShizukuPrivilegedBridge.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/platform/shizuku/ShizukuPrivilegedBridge.kt)
+- Implements `PrivilegedSystemBridge` using `ShizukuBinderWrapper(SystemServiceHelper.getSystemService("window"))` -> `IWindowManager.Stub.asInterface(...)`.
+- Calls `wm.setAnimationScale(which, scale)` individually for API 37 compatibility.
+- Handles Shizuku binder lifecycle, unready states, and remote exceptions safely.
 
-#### [NEW] [DisplayDensityRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/DisplayDensityRepositoryImpl.kt)
-- Maps platform provider data to domain models.
-
----
-
-### Dependency Injection
-
-#### [PlatformModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/PlatformModule.kt)
-- Binds `DisplayDensityProvider` to `AndroidDisplayDensityProvider`.
-
-#### [RepositoryModule.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/di/RepositoryModule.kt)
-- Binds `DisplayDensityRepository` to `DisplayDensityRepositoryImpl`.
+#### [AnimationRepositoryImpl.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/data/repository/AnimationRepositoryImpl.kt)
+- Combines `SystemControlProvider` for standard SDK reads and `PrivilegedSystemBridge` for privileged writes with rollback protection and read-back verification.
 
 ---
 
 ### Presentation Layer
 
 #### [HomeViewModel.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeViewModel.kt)
-- Collects `DisplayDensityInfo` and exposes it as StateFlow to the UI.
+- Exposes `animationScales`, `shizukuState`, `capabilities`, and `animationWriteCapability`.
+- Automates dynamic capability verification when Shizuku becomes `Authorized`.
+- Exposes actions: `applyAnimationScales(scales)`, `applyProfile(profile)`, and user feedback messaging state (`userMessage`).
 
 #### [HomeScreen.kt](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/app/src/main/java/com/devtune/ui/screens/home/HomeScreen.kt)
-- Displays compact "Display Density" card with logical DPI, scale, resolution, smallest width, and read-only status badge.
-- Shows detail sheet with comprehensive breakdown and read-only architectural explanation on click.
+- Standard Mode: Renders read-only animation cards + Advanced Mode prompt card ("Shizuku Required") with "Set up Shizuku" action.
+- Advanced Mode (`WRITE_ANIMATION_SETTINGS` == `AVAILABLE`):
+  - Renders interactive animation scale controls for Window, Transition, and Animator scales with common preset chips (`0x`, `0.25x`, `0.5x`, `0.75x`, `1x`, `1.5x`, `2x`).
+  - Quick Action Profiles ("Default 1.0x", "Fast 0.5x", "No Animation 0x").
+  - Explicit **Apply** button with loading state during write-verification cycle.
+  - Shizuku status indicator chip (`AUTHORIZED`, `NOT RUNNING`, `CONNECTION LOST`).
 
 ---
 
 ### Documentation
 
-#### [NEW] [ADR-005-display-density.md](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/docs/decisions/ADR-005-display-density.md)
-- Documents density concepts, public read APIs, absence of public write APIs, M5 lessons, forbidden alternatives, and capability gating.
+#### [NEW] [ADR-006-privileged-animation-control.md](file:///C:/Users/sgosikonda/Desktop/Projects/DevTune/DevTune_Codex_Foundation/docs/decisions/ADR-006-privileged-animation-control.md)
+- Documents decision context, Shizuku Binder forwarding via `IWindowManager.setAnimationScale`, API 37 compatibility, SET_ANIMATION_SCALE permission, dynamic runtime verification cycle, rollback guarantees, and OEM/version limitations.
 
 ## Verification Plan
 
 ### Automated Tests
 - **Unit Tests**:
-  - `DisplayDensityInfoTest`: Scale calculation, smallest width cross-check, zero-DPI protection, null forced density.
-  - `DisplayDensityRepositoryTest`: Verifies flow emissions.
+  - `AnimationScalesTest`: Range validation (`0.0f..10.0f`), `NaN`, `Infinity` checks.
+  - `AnimationRepositoryTest`: Flow emissions, successful write, partial write failure with automatic rollback, read-back mismatch failure.
+  - `VerifyAnimationWriteUseCaseTest`: Verification cycle success and failure paths.
+  - `ShizukuPrivilegedBridgeTest`: Shizuku ready/unready, binder death, write success, write failure.
 - **Instrumentation Test**:
-  - `DisplayDensityRuntimeTest`: Verifies real Android display metrics on `emulator-5554`.
+  - `ProductionAnimationWriteRuntimeTest`: Executes on `emulator-5554` (Android 17 / API 37) under Shizuku ADB backend (UID 2000):
+    - Reads pre-test scales.
+    - Writes `WINDOW_ANIMATION_SCALE` to `0.5x`.
+    - Reads back and asserts `WINDOW` == `0.5x`.
+    - Restores pre-test scales.
+    - Asserts final scales match pre-test state.
 
 ### Quality Gate
 - `assembleDebug`
 - `assembleRelease`
 - `testDebugUnitTest`
 - `lintDebug`
-- Git commit: `feat: add read-only display density monitoring`
+- `am instrument` on `emulator-5554`

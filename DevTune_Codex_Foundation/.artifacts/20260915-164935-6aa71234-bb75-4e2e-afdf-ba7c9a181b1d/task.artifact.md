@@ -1,24 +1,24 @@
 # Task Management — Milestone M6: Read-Only Display Density Monitoring
 
-- [/] Phase 1: Planning & Implementation Setup
-- [ ] Phase 2: Domain Layer Implementation
-  - [ ] Create `DisplayDensityInfo.kt` domain model
-  - [ ] Create `DisplayDensityRepository.kt` interface
-  - [ ] Create `GetDisplayDensityInfoUseCase.kt`
-- [ ] Phase 3: Platform & Data Layer Implementation
-  - [ ] Create `DisplayDensityProvider.kt` boundary
-  - [ ] Create `AndroidDisplayDensityProvider.kt` platform provider using public SDK APIs
-  - [ ] Create `DisplayDensityRepositoryImpl.kt`
-  - [ ] Update DI modules (`RepositoryModule.kt` & `PlatformModule.kt`)
-- [ ] Phase 4: Presentation Layer Implementation
-  - [ ] Update `HomeViewModel.kt` to expose `DisplayDensityInfo` state flow
-  - [ ] Update `HomeScreen.kt` with compact "Display Density" card & detail sheet
-  - [ ] Add explicit read-only explanation dialog (no Shizuku write prompt)
-- [ ] Phase 5: Documentation
-  - [ ] Create `docs/decisions/ADR-005-display-density.md`
-- [ ] Phase 6: Testing & Quality Gate Verification
-  - [ ] Add unit tests (`DisplayDensityInfoTest.kt`, `DisplayDensityRepositoryTest.kt`)
-  - [ ] Add instrumentation test (`DisplayDensityRuntimeTest.kt`)
-  - [ ] Run `assembleDebug`, `assembleRelease`, `testDebugUnitTest`, `lintDebug`
-  - [ ] Execute runtime test on `emulator-5554` and record metrics
-- [ ] Phase 7: Git Commit & Final Report
+- [x] Phase 1: Planning & Technical Feasibility Research
+- [x] Phase 2: Domain Layer Implementation
+  - [x] Create `DisplayDensityInfo.kt` domain model
+  - [x] Create `DisplayDensityRepository.kt` interface
+  - [x] Create `GetDisplayDensityInfoUseCase.kt`
+- [x] Phase 3: Platform & Data Layer Implementation
+  - [x] Create `DisplayDensityProvider.kt` boundary
+  - [x] Create `AndroidDisplayDensityProvider.kt` platform provider using public SDK APIs
+  - [x] Create `DisplayDensityRepositoryImpl.kt`
+  - [x] Update DI modules (`RepositoryModule.kt` & `PlatformModule.kt`)
+- [x] Phase 4: Presentation Layer Implementation
+  - [x] Update `HomeViewModel.kt` to expose `DisplayDensityInfo` state flow
+  - [x] Update `HomeScreen.kt` with compact "Display Density" card & detail sheet
+  - [x] Add explicit read-only explanation dialog (no Shizuku write prompt)
+- [x] Phase 5: Documentation
+  - [x] Create `docs/decisions/ADR-005-display-density.md`
+- [x] Phase 6: Testing & Quality Gate Verification
+  - [x] Add unit tests (`DisplayDensityInfoTest.kt`, `DisplayDensityRepositoryTest.kt`)
+  - [x] Add instrumentation test (`DisplayDensityRuntimeTest.kt`)
+  - [x] Run `assembleDebug`, `assembleRelease`, `testDebugUnitTest`, `lintDebug`
+  - [x] Execute runtime test on `emulator-5554` and record metrics
+- [x] Phase 7: Git Commit & Final Report (`20e1f2ac4d21c71ab9661c29851f9d393791772f`)
