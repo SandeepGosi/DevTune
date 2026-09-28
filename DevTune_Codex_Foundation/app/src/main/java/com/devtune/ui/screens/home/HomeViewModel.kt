@@ -10,11 +10,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.round
 
 data class HomeUiState(
     val systemState: SystemState? = null,
     val displayDensityInfo: DisplayDensityInfo? = null,
     val animationScales: AnimationScales = AnimationScales.DEFAULT,
+    val pendingWindowScale: Float? = null,
+    val pendingTransitionScale: Float? = null,
+    val pendingAnimatorScale: Float? = null,
     val shizukuState: ShizukuState = ShizukuState.Unknown,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
     val writeAnimationCapability: CapabilityState = CapabilityState.UNKNOWN,
@@ -30,7 +34,21 @@ data class HomeUiState(
     val showDensityDevOptionsDisabled: Boolean = false,
     val showDensityDetailSheet: Boolean = false,
     val isLoading: Boolean = true
-)
+) {
+    val effectiveWindowScale: Float
+        get() = pendingWindowScale ?: animationScales.windowScale
+
+    val effectiveTransitionScale: Float
+        get() = pendingTransitionScale ?: animationScales.transitionScale
+
+    val effectiveAnimatorScale: Float
+        get() = pendingAnimatorScale ?: animationScales.animatorScale
+
+    val hasPendingChanges: Boolean
+        get() = (pendingWindowScale != null && pendingWindowScale != animationScales.windowScale) ||
+                (pendingTransitionScale != null && pendingTransitionScale != animationScales.transitionScale) ||
+                (pendingAnimatorScale != null && pendingAnimatorScale != animationScales.animatorScale)
+}
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -79,6 +97,77 @@ class HomeViewModel @Inject constructor(
         initialValue = HomeUiState()
     )
 
+    fun onPendingWindowScaleChange(rawScale: Float) {
+        val snapped = snapToStep(rawScale)
+        _uiState.update { it.copy(pendingWindowScale = snapped) }
+    }
+
+    fun onPendingTransitionScaleChange(rawScale: Float) {
+        val snapped = snapToStep(rawScale)
+        _uiState.update { it.copy(pendingTransitionScale = snapped) }
+    }
+
+    fun onPendingAnimatorScaleChange(rawScale: Float) {
+        val snapped = snapToStep(rawScale)
+        _uiState.update { it.copy(pendingAnimatorScale = snapped) }
+    }
+
+    fun onSelectProfilePreset(profile: AnimationScales) {
+        _uiState.update {
+            it.copy(
+                pendingWindowScale = snapToStep(profile.windowScale),
+                pendingTransitionScale = snapToStep(profile.transitionScale),
+                pendingAnimatorScale = snapToStep(profile.animatorScale)
+            )
+        }
+    }
+
+    fun onDiscardPendingChanges() {
+        _uiState.update {
+            it.copy(
+                pendingWindowScale = null,
+                pendingTransitionScale = null,
+                pendingAnimatorScale = null
+            )
+        }
+    }
+
+    fun onApplyPendingChanges() {
+        val current = _uiState.value
+        if (!current.hasPendingChanges || current.isApplyingAnimation) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isApplyingAnimation = true) }
+            val targetScales = AnimationScales(
+                windowScale = current.effectiveWindowScale,
+                transitionScale = current.effectiveTransitionScale,
+                animatorScale = current.effectiveAnimatorScale
+            )
+
+            val result = setAnimationScalesUseCase(targetScales)
+
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        pendingWindowScale = null,
+                        pendingTransitionScale = null,
+                        pendingAnimatorScale = null,
+                        userMessage = "Animation scales updated to ${formatScale(targetScales.windowScale)} / ${formatScale(targetScales.transitionScale)} / ${formatScale(targetScales.animatorScale)}"
+                    )
+                }
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Failed to apply animation scales"
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        userMessage = err
+                    )
+                }
+            }
+        }
+    }
+
     fun onRunAnimationExperiment() {
         if (uiState.value.isExperimentRunning) return
 
@@ -112,37 +201,6 @@ class HomeViewModel @Inject constructor(
 
             _uiState.update { it.copy(isExperimentRunning = false, experimentResult = experimentResult) }
         }
-    }
-
-    fun onApplyAnimationScales(windowScale: Float, transitionScale: Float, animatorScale: Float) {
-        if (uiState.value.isApplyingAnimation) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isApplyingAnimation = true) }
-            val scales = AnimationScales(windowScale, transitionScale, animatorScale)
-            val result = setAnimationScalesUseCase(scales)
-
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        isApplyingAnimation = false,
-                        userMessage = "Animation scales updated to ${windowScale}x / ${transitionScale}x / ${animatorScale}x"
-                    )
-                }
-            } else {
-                val err = result.exceptionOrNull()?.message ?: "Failed to apply animation scales"
-                _uiState.update {
-                    it.copy(
-                        isApplyingAnimation = false,
-                        userMessage = err
-                    )
-                }
-            }
-        }
-    }
-
-    fun onApplyAnimationProfile(profile: AnimationScales) {
-        onApplyAnimationScales(profile.windowScale, profile.transitionScale, profile.animatorScale)
     }
 
     fun onClearUserMessage() {
@@ -180,8 +238,6 @@ class HomeViewModel @Inject constructor(
             viewModelScope.launch {
                 requestShizukuPermissionUseCase()
             }
-        } else if (currentState is ShizukuState.NotInstalled || currentState is ShizukuState.Stopped) {
-            // Setup guidance screen
         }
     }
 
@@ -210,5 +266,16 @@ class HomeViewModel @Inject constructor(
     fun onOpenDisplaySettingsClick() {
         openDisplaySettingsUseCase()
         onDismissInstructions()
+    }
+
+    companion object {
+        fun snapToStep(value: Float): Float {
+            val clamped = value.coerceIn(0.0f, 2.0f)
+            return (round(clamped * 4.0f) / 4.0f)
+        }
+
+        fun formatScale(scale: Float): String {
+            return String.format(java.util.Locale.US, "%.2fx", scale)
+        }
     }
 }

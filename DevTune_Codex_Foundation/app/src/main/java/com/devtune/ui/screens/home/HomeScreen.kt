@@ -8,9 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.devtune.R
 import com.devtune.domain.model.AnimationExperimentResult
 import com.devtune.domain.model.AnimationScales
 import com.devtune.domain.model.CapabilityState
@@ -34,8 +36,12 @@ fun HomeRoute(
         onDensitySettingsClick = viewModel::onDensitySettingsClick,
         onAdvancedControlsClick = viewModel::onAdvancedControlsClick,
         onRunAnimationExperiment = viewModel::onRunAnimationExperiment,
-        onApplyAnimationScales = viewModel::onApplyAnimationScales,
-        onApplyAnimationProfile = viewModel::onApplyAnimationProfile,
+        onPendingWindowScaleChange = viewModel::onPendingWindowScaleChange,
+        onPendingTransitionScaleChange = viewModel::onPendingTransitionScaleChange,
+        onPendingAnimatorScaleChange = viewModel::onPendingAnimatorScaleChange,
+        onSelectProfilePreset = viewModel::onSelectProfilePreset,
+        onDiscardPendingChanges = viewModel::onDiscardPendingChanges,
+        onApplyPendingChanges = viewModel::onApplyPendingChanges,
         onClearUserMessage = viewModel::onClearUserMessage,
         onDismissExperimentResult = viewModel::onDismissExperimentResult,
         onDismissInstructions = viewModel::onDismissInstructions,
@@ -55,8 +61,12 @@ fun HomeScreen(
     onDensitySettingsClick: () -> Unit,
     onAdvancedControlsClick: () -> Unit,
     onRunAnimationExperiment: () -> Unit,
-    onApplyAnimationScales: (Float, Float, Float) -> Unit,
-    onApplyAnimationProfile: (AnimationScales) -> Unit,
+    onPendingWindowScaleChange: (Float) -> Unit,
+    onPendingTransitionScaleChange: (Float) -> Unit,
+    onPendingAnimatorScaleChange: (Float) -> Unit,
+    onSelectProfilePreset: (AnimationScales) -> Unit,
+    onDiscardPendingChanges: () -> Unit,
+    onApplyPendingChanges: () -> Unit,
     onClearUserMessage: () -> Unit,
     onDismissExperimentResult: () -> Unit,
     onDismissInstructions: () -> Unit,
@@ -131,8 +141,12 @@ fun HomeScreen(
                 onDensitySettingsClick = onDensitySettingsClick,
                 onAdvancedControlsClick = onAdvancedControlsClick,
                 onRunAnimationExperiment = onRunAnimationExperiment,
-                onApplyAnimationScales = onApplyAnimationScales,
-                onApplyAnimationProfile = onApplyAnimationProfile
+                onPendingWindowScaleChange = onPendingWindowScaleChange,
+                onPendingTransitionScaleChange = onPendingTransitionScaleChange,
+                onPendingAnimatorScaleChange = onPendingAnimatorScaleChange,
+                onSelectProfilePreset = onSelectProfilePreset,
+                onDiscardPendingChanges = onDiscardPendingChanges,
+                onApplyPendingChanges = onApplyPendingChanges
             )
         }
     }
@@ -147,8 +161,12 @@ private fun HomeContent(
     onDensitySettingsClick: () -> Unit,
     onAdvancedControlsClick: () -> Unit,
     onRunAnimationExperiment: () -> Unit,
-    onApplyAnimationScales: (Float, Float, Float) -> Unit,
-    onApplyAnimationProfile: (AnimationScales) -> Unit
+    onPendingWindowScaleChange: (Float) -> Unit,
+    onPendingTransitionScaleChange: (Float) -> Unit,
+    onPendingAnimatorScaleChange: (Float) -> Unit,
+    onSelectProfilePreset: (AnimationScales) -> Unit,
+    onDiscardPendingChanges: () -> Unit,
+    onApplyPendingChanges: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -235,13 +253,16 @@ private fun HomeContent(
                         }
                     }
 
-                    // Production Advanced Animation Scale Control Card
-                    AnimationScalesCard(
+                    // Production Material 3 Slider Animation Scale Control Card
+                    AnimationScalesSliderCard(
                         uiState = uiState,
                         onAnimationSettingsClick = onAnimationSettingsClick,
                         onRunAnimationExperiment = onRunAnimationExperiment,
-                        onApplyAnimationScales = onApplyAnimationScales,
-                        onApplyAnimationProfile = onApplyAnimationProfile
+                        onPendingWindowScaleChange = onPendingWindowScaleChange,
+                        onPendingTransitionScaleChange = onPendingTransitionScaleChange,
+                        onPendingAnimatorScaleChange = onPendingAnimatorScaleChange,
+                        onDiscardPendingChanges = onDiscardPendingChanges,
+                        onApplyPendingChanges = onApplyPendingChanges
                     )
                 }
             }
@@ -249,9 +270,13 @@ private fun HomeContent(
 
         item {
             ProfilesPreviewModule(
-                currentScales = uiState.animationScales,
+                currentEffectiveScales = AnimationScales(
+                    uiState.effectiveWindowScale,
+                    uiState.effectiveTransitionScale,
+                    uiState.effectiveAnimatorScale
+                ),
                 isAdvancedMode = uiState.shizukuState is ShizukuState.Authorized,
-                onApplyProfile = onApplyAnimationProfile
+                onSelectProfilePreset = onSelectProfilePreset
             )
         }
 
@@ -264,25 +289,23 @@ private fun HomeContent(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnimationScalesCard(
+private fun AnimationScalesSliderCard(
     uiState: HomeUiState,
     onAnimationSettingsClick: () -> Unit,
     onRunAnimationExperiment: () -> Unit,
-    onApplyAnimationScales: (Float, Float, Float) -> Unit,
-    onApplyAnimationProfile: (AnimationScales) -> Unit
+    onPendingWindowScaleChange: (Float) -> Unit,
+    onPendingTransitionScaleChange: (Float) -> Unit,
+    onPendingAnimatorScaleChange: (Float) -> Unit,
+    onDiscardPendingChanges: () -> Unit,
+    onApplyPendingChanges: () -> Unit
 ) {
     val isAdvancedMode = uiState.shizukuState is ShizukuState.Authorized
-    var selectedWindow by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.windowScale) }
-    var selectedTransition by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.transitionScale) }
-    var selectedAnimator by remember(uiState.animationScales) { mutableFloatStateOf(uiState.animationScales.animatorScale) }
-
-    val presetValues = listOf(0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f)
 
     FeatureCard(
         title = "Animation Scales",
         supportingText = when {
+            isAdvancedMode && uiState.hasPendingChanges -> "Pending scale changes — Tap Apply to save"
             isAdvancedMode -> "Advanced mode active · Privileged Binder controls"
             uiState.shizukuState is ShizukuState.PermissionRequired -> "Authorization required for advanced controls"
             else -> "Read-only without Shizuku authorization"
@@ -293,78 +316,76 @@ private fun AnimationScalesCard(
         Column(verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AnimationValue(label = "Window", value = uiState.animationScales.windowScale)
-                AnimationValue(label = "Transition", value = uiState.animationScales.transitionScale)
-                AnimationValue(label = "Animator", value = uiState.animationScales.animatorScale)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.large)
+                ) {
+                    AnimationValue(label = "Window", value = uiState.effectiveWindowScale)
+                    AnimationValue(label = "Transition", value = uiState.effectiveTransitionScale)
+                    AnimationValue(label = "Animator", value = uiState.effectiveAnimatorScale)
+                }
+
+                if (uiState.hasPendingChanges) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                text = "Unsaved",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
             }
 
             if (isAdvancedMode) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                Text(
-                    text = "Window Animation Scale",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                AnimationScaleSliderRow(
+                    label = "Window Animation",
+                    value = uiState.effectiveWindowScale,
+                    enabled = isAdvancedMode,
+                    onValueChange = onPendingWindowScaleChange
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    presetValues.forEach { scale ->
-                        FilterChip(
-                            selected = selectedWindow == scale,
-                            onClick = { selectedWindow = scale },
-                            label = { Text("${scale}x") }
-                        )
-                    }
-                }
 
-                Text(
-                    text = "Transition Animation Scale",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                AnimationScaleSliderRow(
+                    label = "Transition Animation",
+                    value = uiState.effectiveTransitionScale,
+                    enabled = isAdvancedMode,
+                    onValueChange = onPendingTransitionScaleChange
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    presetValues.forEach { scale ->
-                        FilterChip(
-                            selected = selectedTransition == scale,
-                            onClick = { selectedTransition = scale },
-                            label = { Text("${scale}x") }
-                        )
-                    }
-                }
 
-                Text(
-                    text = "Animator Duration Scale",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
+                AnimationScaleSliderRow(
+                    label = "Animator Duration",
+                    value = uiState.effectiveAnimatorScale,
+                    enabled = isAdvancedMode,
+                    onValueChange = onPendingAnimatorScaleChange
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    presetValues.forEach { scale ->
-                        FilterChip(
-                            selected = selectedAnimator == scale,
-                            onClick = { selectedAnimator = scale },
-                            label = { Text("${scale}x") }
-                        )
-                    }
-                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
                 ) {
                     Button(
-                        onClick = { onApplyAnimationScales(selectedWindow, selectedTransition, selectedAnimator) },
+                        onClick = onApplyPendingChanges,
                         modifier = Modifier.weight(1f),
-                        enabled = !uiState.isApplyingAnimation
+                        enabled = uiState.hasPendingChanges && !uiState.isApplyingAnimation
                     ) {
                         if (uiState.isApplyingAnimation) {
                             CircularProgressIndicator(
@@ -375,18 +396,27 @@ private fun AnimationScalesCard(
                             Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
                             Text("Applying...")
                         } else {
-                            Text("Apply Animation Scales")
+                            Text("Apply Changes")
                         }
                     }
 
-                    OutlinedButton(
-                        onClick = onRunAnimationExperiment,
-                        enabled = !uiState.isExperimentRunning
-                    ) {
-                        if (uiState.isExperimentRunning) {
-                            Text("Verifying...")
-                        } else {
-                            Text("Verify Control")
+                    if (uiState.hasPendingChanges) {
+                        OutlinedButton(
+                            onClick = onDiscardPendingChanges,
+                            enabled = !uiState.isApplyingAnimation
+                        ) {
+                            Text("Discard")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = onRunAnimationExperiment,
+                            enabled = !uiState.isExperimentRunning
+                        ) {
+                            if (uiState.isExperimentRunning) {
+                                Text("Verifying...")
+                            } else {
+                                Text("Verify Control")
+                            }
                         }
                     }
                 }
@@ -400,6 +430,44 @@ private fun AnimationScalesCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AnimationScaleSliderRow(
+    label: String,
+    value: Float,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = HomeViewModel.formatScale(value),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0.0f..2.0f,
+            steps = 7,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -478,9 +546,9 @@ private fun HeroStat(label: String, value: String) {
 
 @Composable
 private fun ProfilesPreviewModule(
-    currentScales: AnimationScales,
+    currentEffectiveScales: AnimationScales,
     isAdvancedMode: Boolean,
-    onApplyProfile: (AnimationScales) -> Unit
+    onSelectProfilePreset: (AnimationScales) -> Unit
 ) {
     Column(
         modifier = Modifier.padding(horizontal = DevTuneTheme.spacing.screenPadding),
@@ -500,26 +568,26 @@ private fun ProfilesPreviewModule(
         ) {
             ProfileChip(
                 name = "Default",
-                value = "1.0x",
-                selected = currentScales == AnimationScales.DEFAULT,
+                value = "1.00x",
+                selected = currentEffectiveScales == AnimationScales.DEFAULT,
                 enabled = isAdvancedMode,
-                onClick = { onApplyProfile(AnimationScales.DEFAULT) },
+                onClick = { onSelectProfilePreset(AnimationScales.DEFAULT) },
                 modifier = Modifier.weight(1f)
             )
             ProfileChip(
                 name = "Fast",
-                value = "0.5x",
-                selected = currentScales == AnimationScales.FAST,
+                value = "0.50x",
+                selected = currentEffectiveScales == AnimationScales.FAST,
                 enabled = isAdvancedMode,
-                onClick = { onApplyProfile(AnimationScales.FAST) },
+                onClick = { onSelectProfilePreset(AnimationScales.FAST) },
                 modifier = Modifier.weight(1f)
             )
             ProfileChip(
                 name = "No Anim",
-                value = "0x",
-                selected = currentScales == AnimationScales.NO_ANIMATIONS,
+                value = "0.00x",
+                selected = currentEffectiveScales == AnimationScales.NO_ANIMATIONS,
                 enabled = isAdvancedMode,
-                onClick = { onApplyProfile(AnimationScales.NO_ANIMATIONS) },
+                onClick = { onSelectProfilePreset(AnimationScales.NO_ANIMATIONS) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -624,7 +692,7 @@ private fun AdvancedControlsModule(
 private fun AnimationValue(label: String, value: Float) {
     Column {
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = "${value}x", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+        Text(text = HomeViewModel.formatScale(value), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
     }
 }
 
