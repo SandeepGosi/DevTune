@@ -1,8 +1,10 @@
 package com.devtune.di
 
 import com.devtune.data.repository.AnimationRepositoryImpl
+import com.devtune.data.repository.TemporarySessionRepositoryImpl
 import com.devtune.data.repository.UserPreferencesRepositoryImpl
 import com.devtune.domain.repository.AnimationRepository
+import com.devtune.domain.repository.TemporarySessionRepository
 import com.devtune.domain.repository.UserPreferencesRepository
 import dagger.Binds
 import dagger.Module
@@ -31,4 +33,10 @@ abstract class RepositoryModule {
     abstract fun bindDisplayDensityRepository(
         impl: com.devtune.data.repository.DisplayDensityRepositoryImpl
     ): com.devtune.domain.repository.DisplayDensityRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTemporarySessionRepository(
+        impl: TemporarySessionRepositoryImpl
+    ): TemporarySessionRepository
 }

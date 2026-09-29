@@ -4,13 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.devtune.domain.model.*
 import com.devtune.domain.repository.AnimationRepository
+import com.devtune.domain.repository.TemporarySessionRepository
 import com.devtune.domain.repository.UserPreferencesRepository
 import com.devtune.domain.usecase.*
+import com.devtune.platform.TimeProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.round
+
+data class SystemData(
+    val systemState: SystemState?,
+    val shizukuState: ShizukuState,
+    val densityInfo: DisplayDensityInfo?,
+    val scales: AnimationScales,
+    val session: TemporaryAnimationSession?
+)
 
 data class HomeUiState(
     val systemState: SystemState? = null,
@@ -19,6 +29,9 @@ data class HomeUiState(
     val pendingWindowScale: Float? = null,
     val pendingTransitionScale: Float? = null,
     val pendingAnimatorScale: Float? = null,
+    val temporarySession: TemporaryAnimationSession? = null,
+    val selectedDuration: TemporaryDuration = TemporaryDuration.THIRTY_MINUTES,
+    val currentTimeMillis: Long = 0L,
     val shizukuState: ShizukuState = ShizukuState.Unknown,
     val canOpenDevOptions: CapabilityState = CapabilityState.UNKNOWN,
     val writeAnimationCapability: CapabilityState = CapabilityState.UNKNOWN,
@@ -48,14 +61,26 @@ data class HomeUiState(
         get() = (pendingWindowScale != null && pendingWindowScale != animationScales.windowScale) ||
                 (pendingTransitionScale != null && pendingTransitionScale != animationScales.transitionScale) ||
                 (pendingAnimatorScale != null && pendingAnimatorScale != animationScales.animatorScale)
+
+    val isTemporarySessionActive: Boolean
+        get() = temporarySession != null && (
+            temporarySession.status == SessionStatus.ACTIVE ||
+            temporarySession.status == SessionStatus.RESTORE_PENDING ||
+            temporarySession.status == SessionStatus.RESTORING ||
+            temporarySession.status == SessionStatus.FAILED_TO_RESTORE
+        )
 }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     getSystemStateUseCase: GetSystemStateUseCase,
-    getShizukuStateUseCase: GetShizukuStateUseCase,
+    private val getShizukuStateUseCase: GetShizukuStateUseCase,
     getDisplayDensityInfoUseCase: GetDisplayDensityInfoUseCase,
-    animationRepository: AnimationRepository,
+    private val animationRepository: AnimationRepository,
+    private val temporarySessionRepository: TemporarySessionRepository,
+    private val startTemporarySessionUseCase: StartTemporarySessionUseCase,
+    private val restoreTemporarySessionUseCase: RestoreTemporarySessionUseCase,
+    private val timeProvider: TimeProvider,
     private val getCapabilityStateUseCase: GetCapabilityStateUseCase,
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase,
     private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase,
@@ -67,24 +92,36 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = combine(
+
+    private val systemDataFlow = combine(
         getSystemStateUseCase(),
         getShizukuStateUseCase(),
         getDisplayDensityInfoUseCase(),
         animationRepository.getAnimationScales(),
+        temporarySessionRepository.activeSession
+    ) { systemState, shizukuState, densityInfo, scales, session ->
+        SystemData(systemState, shizukuState, densityInfo, scales, session)
+    }
+
+    val uiState: StateFlow<HomeUiState> = combine(
+        systemDataFlow,
         _uiState
-    ) { systemState, shizukuState, densityInfo, scales, currentUiState ->
-        val writeAnimCap = if (shizukuState is ShizukuState.Authorized) {
+    ) { data, currentUiState ->
+        val writeAnimCap = if (data.shizukuState is ShizukuState.Authorized) {
             getCapabilityStateUseCase(PlatformCapability.WRITE_ANIMATION_SETTINGS)
         } else {
             CapabilityState.UNKNOWN
         }
 
+        val now = timeProvider.currentTimeMillis()
+
         currentUiState.copy(
-            systemState = systemState,
-            displayDensityInfo = densityInfo,
-            animationScales = scales,
-            shizukuState = shizukuState,
+            systemState = data.systemState,
+            displayDensityInfo = data.densityInfo,
+            animationScales = data.scales,
+            temporarySession = data.session,
+            currentTimeMillis = now,
+            shizukuState = data.shizukuState,
             canOpenDevOptions = getCapabilityStateUseCase(PlatformCapability.OPEN_DEVELOPER_OPTIONS),
             writeAnimationCapability = writeAnimCap,
             readDensityCapability = getCapabilityStateUseCase(PlatformCapability.READ_DISPLAY_DENSITY),
@@ -96,6 +133,61 @@ class HomeViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = HomeUiState()
     )
+
+    init {
+        observeSessionAndRecovery()
+    }
+
+    private fun observeSessionAndRecovery() {
+        viewModelScope.launch {
+            combine(
+                temporarySessionRepository.activeSession,
+                getShizukuStateUseCase()
+            ) { session, shizukuState ->
+                Pair(session, shizukuState)
+            }.collect { (session, shizukuState) ->
+                if (session == null) return@collect
+
+                val now = timeProvider.currentTimeMillis()
+
+                if (session.status == SessionStatus.APPLYING) {
+                    reconcileApplyingCrash(session)
+                    return@collect
+                }
+
+                if (session.isExpired(now) &&
+                    (session.status == SessionStatus.ACTIVE ||
+                     session.status == SessionStatus.RESTORE_PENDING ||
+                     session.status == SessionStatus.FAILED_TO_RESTORE)
+                ) {
+                    if (shizukuState is ShizukuState.Authorized) {
+                        restoreTemporarySessionUseCase()
+                    } else if (session.status != SessionStatus.RESTORE_PENDING) {
+                        temporarySessionRepository.updateStatus(SessionStatus.RESTORE_PENDING)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun reconcileApplyingCrash(session: TemporaryAnimationSession) {
+        val actualResult = animationRepository.getAnimationScalesOnce()
+        if (actualResult.isFailure) return
+        val actual = actualResult.getOrThrow()
+
+        when {
+            actual == session.targetScales -> {
+                temporarySessionRepository.updateStatus(SessionStatus.ACTIVE)
+            }
+            actual == session.originalScales -> {
+                temporarySessionRepository.updateStatus(SessionStatus.CANCELLED)
+                temporarySessionRepository.clearSession()
+            }
+            else -> {
+                restoreTemporarySessionUseCase()
+            }
+        }
+    }
 
     fun onPendingWindowScaleChange(rawScale: Float) {
         val snapped = snapToStep(rawScale)
@@ -120,6 +212,10 @@ class HomeViewModel @Inject constructor(
                 pendingAnimatorScale = snapToStep(profile.animatorScale)
             )
         }
+    }
+
+    fun onSelectDuration(duration: TemporaryDuration) {
+        _uiState.update { it.copy(selectedDuration = duration) }
     }
 
     fun onDiscardPendingChanges() {
@@ -158,6 +254,68 @@ class HomeViewModel @Inject constructor(
                 }
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Failed to apply animation scales"
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        userMessage = err
+                    )
+                }
+            }
+        }
+    }
+
+    fun onStartTemporarySession() {
+        val current = _uiState.value
+        if (current.isApplyingAnimation) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isApplyingAnimation = true) }
+            val targetScales = AnimationScales(
+                windowScale = current.effectiveWindowScale,
+                transitionScale = current.effectiveTransitionScale,
+                animatorScale = current.effectiveAnimatorScale
+            )
+
+            val result = startTemporarySessionUseCase(targetScales, current.selectedDuration)
+
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        pendingWindowScale = null,
+                        pendingTransitionScale = null,
+                        pendingAnimatorScale = null,
+                        userMessage = "Temporary profile active for ${current.selectedDuration.label}"
+                    )
+                }
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Failed to start temporary profile session"
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        userMessage = err
+                    )
+                }
+            }
+        }
+    }
+
+    fun onRestoreTemporarySession() {
+        if (_uiState.value.isApplyingAnimation) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isApplyingAnimation = true) }
+            val result = restoreTemporarySessionUseCase()
+
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isApplyingAnimation = false,
+                        userMessage = "Original animation scales restored"
+                    )
+                }
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Failed to restore original animation scales"
                 _uiState.update {
                     it.copy(
                         isApplyingAnimation = false,
@@ -276,6 +434,13 @@ class HomeViewModel @Inject constructor(
 
         fun formatScale(scale: Float): String {
             return String.format(java.util.Locale.US, "%.2fx", scale)
+        }
+
+        fun formatRemainingTime(millis: Long): String {
+            val totalSeconds = millis / 1000L
+            val minutes = totalSeconds / 60L
+            val seconds = totalSeconds % 60L
+            return String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
         }
     }
 }

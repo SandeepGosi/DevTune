@@ -8,16 +8,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.devtune.R
-import com.devtune.domain.model.AnimationExperimentResult
-import com.devtune.domain.model.AnimationScales
-import com.devtune.domain.model.CapabilityState
-import com.devtune.domain.model.ShizukuState
-import com.devtune.domain.model.SystemState
+import com.devtune.domain.model.*
 import com.devtune.ui.components.*
 import com.devtune.ui.theme.DevTuneTheme
 
@@ -40,8 +34,11 @@ fun HomeRoute(
         onPendingTransitionScaleChange = viewModel::onPendingTransitionScaleChange,
         onPendingAnimatorScaleChange = viewModel::onPendingAnimatorScaleChange,
         onSelectProfilePreset = viewModel::onSelectProfilePreset,
+        onSelectDuration = viewModel::onSelectDuration,
         onDiscardPendingChanges = viewModel::onDiscardPendingChanges,
         onApplyPendingChanges = viewModel::onApplyPendingChanges,
+        onStartTemporarySession = viewModel::onStartTemporarySession,
+        onRestoreTemporarySession = viewModel::onRestoreTemporarySession,
         onClearUserMessage = viewModel::onClearUserMessage,
         onDismissExperimentResult = viewModel::onDismissExperimentResult,
         onDismissInstructions = viewModel::onDismissInstructions,
@@ -65,8 +62,11 @@ fun HomeScreen(
     onPendingTransitionScaleChange: (Float) -> Unit,
     onPendingAnimatorScaleChange: (Float) -> Unit,
     onSelectProfilePreset: (AnimationScales) -> Unit,
+    onSelectDuration: (TemporaryDuration) -> Unit,
     onDiscardPendingChanges: () -> Unit,
     onApplyPendingChanges: () -> Unit,
+    onStartTemporarySession: () -> Unit,
+    onRestoreTemporarySession: () -> Unit,
     onClearUserMessage: () -> Unit,
     onDismissExperimentResult: () -> Unit,
     onDismissInstructions: () -> Unit,
@@ -145,8 +145,11 @@ fun HomeScreen(
                 onPendingTransitionScaleChange = onPendingTransitionScaleChange,
                 onPendingAnimatorScaleChange = onPendingAnimatorScaleChange,
                 onSelectProfilePreset = onSelectProfilePreset,
+                onSelectDuration = onSelectDuration,
                 onDiscardPendingChanges = onDiscardPendingChanges,
-                onApplyPendingChanges = onApplyPendingChanges
+                onApplyPendingChanges = onApplyPendingChanges,
+                onStartTemporarySession = onStartTemporarySession,
+                onRestoreTemporarySession = onRestoreTemporarySession
             )
         }
     }
@@ -165,8 +168,11 @@ private fun HomeContent(
     onPendingTransitionScaleChange: (Float) -> Unit,
     onPendingAnimatorScaleChange: (Float) -> Unit,
     onSelectProfilePreset: (AnimationScales) -> Unit,
+    onSelectDuration: (TemporaryDuration) -> Unit,
     onDiscardPendingChanges: () -> Unit,
-    onApplyPendingChanges: () -> Unit
+    onApplyPendingChanges: () -> Unit,
+    onStartTemporarySession: () -> Unit,
+    onRestoreTemporarySession: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -185,6 +191,15 @@ private fun HomeContent(
         item {
             uiState.systemState?.let { state ->
                 SystemStatusHero(state, uiState.shizukuState)
+            }
+        }
+
+        if (uiState.isTemporarySessionActive) {
+            item {
+                ActiveTemporarySessionCard(
+                    uiState = uiState,
+                    onRestoreTemporarySession = onRestoreTemporarySession
+                )
             }
         }
 
@@ -253,7 +268,6 @@ private fun HomeContent(
                         }
                     }
 
-                    // Production Material 3 Slider Animation Scale Control Card
                     AnimationScalesSliderCard(
                         uiState = uiState,
                         onAnimationSettingsClick = onAnimationSettingsClick,
@@ -261,8 +275,10 @@ private fun HomeContent(
                         onPendingWindowScaleChange = onPendingWindowScaleChange,
                         onPendingTransitionScaleChange = onPendingTransitionScaleChange,
                         onPendingAnimatorScaleChange = onPendingAnimatorScaleChange,
+                        onSelectDuration = onSelectDuration,
                         onDiscardPendingChanges = onDiscardPendingChanges,
-                        onApplyPendingChanges = onApplyPendingChanges
+                        onApplyPendingChanges = onApplyPendingChanges,
+                        onStartTemporarySession = onStartTemporarySession
                     )
                 }
             }
@@ -290,6 +306,127 @@ private fun HomeContent(
 }
 
 @Composable
+private fun ActiveTemporarySessionCard(
+    uiState: HomeUiState,
+    onRestoreTemporarySession: () -> Unit
+) {
+    val session = uiState.temporarySession ?: return
+    val remainingMs = session.remainingMillis(uiState.currentTimeMillis)
+    val formattedRemaining = HomeViewModel.formatRemainingTime(remainingMs)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = DevTuneTheme.spacing.screenPadding),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        ),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier.padding(DevTuneTheme.spacing.large),
+            verticalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.medium)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Text(
+                        text = "TEMPORARY PROFILE ACTIVE",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.tertiary
+                ) {
+                    Text(
+                        text = formattedRemaining,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (session.status == SessionStatus.RESTORE_PENDING || session.status == SessionStatus.FAILED_TO_RESTORE) {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = "Restoration Pending — Shizuku authorization required to restore original animation scales.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(DevTuneTheme.spacing.medium)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Target", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                    Text(
+                        "${HomeViewModel.formatScale(session.targetScales.windowScale)} / ${HomeViewModel.formatScale(session.targetScales.transitionScale)} / ${HomeViewModel.formatScale(session.targetScales.animatorScale)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+
+                Column {
+                    Text("Original", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                    Text(
+                        "${HomeViewModel.formatScale(session.originalScales.windowScale)} / ${HomeViewModel.formatScale(session.originalScales.transitionScale)} / ${HomeViewModel.formatScale(session.originalScales.animatorScale)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+            }
+
+            Button(
+                onClick = onRestoreTemporarySession,
+                enabled = !uiState.isApplyingAnimation,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary
+                )
+            ) {
+                if (uiState.isApplyingAnimation) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onTertiary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
+                    Text("Restoring...")
+                } else {
+                    Text("Restore Original Scales Now")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AnimationScalesSliderCard(
     uiState: HomeUiState,
     onAnimationSettingsClick: () -> Unit,
@@ -297,8 +434,10 @@ private fun AnimationScalesSliderCard(
     onPendingWindowScaleChange: (Float) -> Unit,
     onPendingTransitionScaleChange: (Float) -> Unit,
     onPendingAnimatorScaleChange: (Float) -> Unit,
+    onSelectDuration: (TemporaryDuration) -> Unit,
     onDiscardPendingChanges: () -> Unit,
-    onApplyPendingChanges: () -> Unit
+    onApplyPendingChanges: () -> Unit,
+    onStartTemporarySession: () -> Unit
 ) {
     val isAdvancedMode = uiState.shizukuState is ShizukuState.Authorized
 
@@ -378,6 +517,34 @@ private fun AnimationScalesSliderCard(
                     onValueChange = onPendingAnimatorScaleChange
                 )
 
+                if (!uiState.isTemporarySessionActive) {
+                    Text(
+                        text = "Temporary Duration",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TemporaryDuration.entries.forEach { duration ->
+                            FilterChip(
+                                selected = uiState.selectedDuration == duration,
+                                onClick = { onSelectDuration(duration) },
+                                label = {
+                                    Text(
+                                        text = duration.label,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(DevTuneTheme.spacing.small)
@@ -393,10 +560,18 @@ private fun AnimationScalesSliderCard(
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp
                             )
-                            Spacer(modifier = Modifier.width(DevTuneTheme.spacing.small))
-                            Text("Applying...")
                         } else {
-                            Text("Apply Changes")
+                            Text("Apply Permanent")
+                        }
+                    }
+
+                    if (!uiState.isTemporarySessionActive) {
+                        OutlinedButton(
+                            onClick = onStartTemporarySession,
+                            modifier = Modifier.weight(1f),
+                            enabled = !uiState.isApplyingAnimation
+                        ) {
+                            Text("Apply ${uiState.selectedDuration.label}")
                         }
                     }
 
@@ -406,17 +581,6 @@ private fun AnimationScalesSliderCard(
                             enabled = !uiState.isApplyingAnimation
                         ) {
                             Text("Discard")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = onRunAnimationExperiment,
-                            enabled = !uiState.isExperimentRunning
-                        ) {
-                            if (uiState.isExperimentRunning) {
-                                Text("Verifying...")
-                            } else {
-                                Text("Verify Control")
-                            }
                         }
                     }
                 }

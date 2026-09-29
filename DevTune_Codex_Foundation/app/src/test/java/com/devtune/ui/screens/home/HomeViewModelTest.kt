@@ -2,8 +2,10 @@ package com.devtune.ui.screens.home
 
 import com.devtune.domain.model.*
 import com.devtune.domain.repository.AnimationRepository
+import com.devtune.domain.repository.TemporarySessionRepository
 import com.devtune.domain.repository.UserPreferencesRepository
 import com.devtune.domain.usecase.*
+import com.devtune.platform.TimeProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -24,6 +26,10 @@ class HomeViewModelTest {
     private val getShizukuStateUseCase: GetShizukuStateUseCase = mock()
     private val getDisplayDensityInfoUseCase: GetDisplayDensityInfoUseCase = mock()
     private val animationRepository: AnimationRepository = mock()
+    private val temporarySessionRepository: TemporarySessionRepository = mock()
+    private val startTemporarySessionUseCase: StartTemporarySessionUseCase = mock()
+    private val restoreTemporarySessionUseCase: RestoreTemporarySessionUseCase = mock()
+    private val timeProvider: TimeProvider = mock()
     private val getCapabilityStateUseCase: GetCapabilityStateUseCase = mock()
     private val openDeveloperOptionsUseCase: OpenDeveloperOptionsUseCase = mock()
     private val openDeviceInfoSettingsUseCase: OpenDeviceInfoSettingsUseCase = mock()
@@ -54,13 +60,19 @@ class HomeViewModelTest {
             )
         )
         whenever(animationRepository.getAnimationScales()).thenReturn(flowOf(AnimationScales(1.0f, 1.0f, 1.0f)))
+        whenever(temporarySessionRepository.activeSession).thenReturn(flowOf(null))
         whenever(getCapabilityStateUseCase(any())).thenReturn(CapabilityState.AVAILABLE)
+        whenever(timeProvider.currentTimeMillis()).thenReturn(1000000L)
 
         viewModel = HomeViewModel(
             getSystemStateUseCase,
             getShizukuStateUseCase,
             getDisplayDensityInfoUseCase,
             animationRepository,
+            temporarySessionRepository,
+            startTemporarySessionUseCase,
+            restoreTemporarySessionUseCase,
+            timeProvider,
             getCapabilityStateUseCase,
             openDeveloperOptionsUseCase,
             openDeviceInfoSettingsUseCase,
@@ -88,6 +100,13 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `formatRemainingTime formats milliseconds to MM_SS`() {
+        assertEquals("00:00", HomeViewModel.formatRemainingTime(0L))
+        assertEquals("05:00", HomeViewModel.formatRemainingTime(300000L))
+        assertEquals("29:42", HomeViewModel.formatRemainingTime(1782000L))
+    }
+
+    @Test
     fun `pending scale change sets local pending state without immediate system write`() = runTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect {}
@@ -98,10 +117,51 @@ class HomeViewModelTest {
         testScheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        println("TEST DEBUG STATE: $state")
         assertEquals(0.5f, state.effectiveWindowScale, 0.001f)
         assertTrue(state.hasPendingChanges)
 
         verifyNoInteractions(setAnimationScalesUseCase)
+    }
+
+    @Test
+    fun `start temporary session invokes startTemporarySessionUseCase`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+        testScheduler.advanceUntilIdle()
+
+        val createdSession = TemporaryAnimationSession(
+            sessionId = "sess-123",
+            startedAtEpochMillis = 1000000L,
+            expiresAtEpochMillis = 1000000L + 30 * 60 * 1000L,
+            originalScales = AnimationScales.DEFAULT,
+            targetScales = AnimationScales.FAST,
+            status = SessionStatus.ACTIVE
+        )
+        whenever(startTemporarySessionUseCase(any(), any())).thenReturn(Result.success(createdSession))
+
+        viewModel.onSelectProfilePreset(AnimationScales.FAST)
+        viewModel.onSelectDuration(TemporaryDuration.THIRTY_MINUTES)
+        viewModel.onStartTemporarySession()
+        testScheduler.advanceUntilIdle()
+
+        verify(startTemporarySessionUseCase).invoke(AnimationScales.FAST, TemporaryDuration.THIRTY_MINUTES)
+        assertNotNull(viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun `restore temporary session invokes restoreTemporarySessionUseCase`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+        testScheduler.advanceUntilIdle()
+
+        whenever(restoreTemporarySessionUseCase()).thenReturn(Result.success(Unit))
+
+        viewModel.onRestoreTemporarySession()
+        testScheduler.advanceUntilIdle()
+
+        verify(restoreTemporarySessionUseCase).invoke()
+        assertNotNull(viewModel.uiState.value.userMessage)
     }
 }

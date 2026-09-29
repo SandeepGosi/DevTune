@@ -29,6 +29,15 @@ class AnimationRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getAnimationScalesOnce(): Result<AnimationScales> {
+        val settings = systemControlProvider.getAnimationSettings()
+        return if (settings != null) {
+            Result.success(AnimationScales(settings.windowScale, settings.transitionScale, settings.animatorDurationScale))
+        } else {
+            Result.failure(AnimationError.ReadFailed)
+        }
+    }
+
     override suspend fun setAnimationScale(which: Int, scale: Float): Result<Unit> {
         try {
             AnimationScales.validateScale(scale, "which=$which")

@@ -10,6 +10,8 @@ import com.devtune.platform.shizuku.AndroidShizukuProvider
 import com.devtune.platform.shizuku.PrivilegedSystemBridge
 import com.devtune.platform.shizuku.ShizukuPrivilegedBridge
 import com.devtune.platform.shizuku.ShizukuProvider
+import com.devtune.platform.TimeProvider
+import com.devtune.platform.SystemTimeProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -55,4 +57,10 @@ abstract class PlatformModule {
     abstract fun bindPrivilegedSystemBridge(
         impl: ShizukuPrivilegedBridge
     ): PrivilegedSystemBridge
+
+    @Binds
+    @Singleton
+    abstract fun bindTimeProvider(
+        impl: SystemTimeProvider
+    ): TimeProvider
 }

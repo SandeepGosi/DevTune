@@ -13,6 +13,9 @@ sealed class AnimationError : Exception() {
     object BinderUnavailable : AnimationError() {
         override val message: String = "WindowManager Binder service could not be acquired."
     }
+    object ReadFailed : AnimationError() {
+        override val message: String = "Failed to read system animation scales."
+    }
     data class InvalidScaleValue(val value: Float, val reason: String) : AnimationError() {
         override val message: String = "Invalid animation scale value ($value): $reason"
     }
