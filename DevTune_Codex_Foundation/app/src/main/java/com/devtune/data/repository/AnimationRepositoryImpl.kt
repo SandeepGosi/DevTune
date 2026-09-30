@@ -8,6 +8,8 @@ import com.devtune.platform.shizuku.PrivilegedSystemBridge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -17,6 +19,8 @@ class AnimationRepositoryImpl @Inject constructor(
     private val systemControlProvider: SystemControlProvider,
     private val privilegedBridge: PrivilegedSystemBridge
 ) : AnimationRepository {
+
+    private val writeMutex = Mutex()
 
     override fun getAnimationScales(): Flow<AnimationScales> = flow {
         while (true) {
@@ -52,17 +56,17 @@ class AnimationRepositoryImpl @Inject constructor(
         return privilegedBridge.setAnimationScale(which, scale)
     }
 
-    override suspend fun applyAnimationScales(scales: AnimationScales): Result<Unit> {
+    override suspend fun applyAnimationScales(scales: AnimationScales): Result<Unit> = writeMutex.withLock {
         try {
             AnimationScales.validateScale(scales.windowScale, "windowScale")
             AnimationScales.validateScale(scales.transitionScale, "transitionScale")
             AnimationScales.validateScale(scales.animatorScale, "animatorScale")
         } catch (e: Exception) {
-            return Result.failure(e)
+            return@withLock Result.failure(e)
         }
 
         if (!privilegedBridge.isShizukuReady()) {
-            return Result.failure(AnimationError.ShizukuUnavailable)
+            return@withLock Result.failure(AnimationError.ShizukuUnavailable)
         }
 
         // 1. Capture original scales for rollback protection
@@ -75,19 +79,19 @@ class AnimationRepositoryImpl @Inject constructor(
         val winResult = privilegedBridge.setAnimationScale(0, scales.windowScale)
         if (winResult.isFailure) {
             rollback(origWin, origTrans, origAnim)
-            return Result.failure(AnimationError.WriteFailed(0, winResult.exceptionOrNull()))
+            return@withLock Result.failure(AnimationError.WriteFailed(0, winResult.exceptionOrNull()))
         }
 
         val transResult = privilegedBridge.setAnimationScale(1, scales.transitionScale)
         if (transResult.isFailure) {
             rollback(origWin, origTrans, origAnim)
-            return Result.failure(AnimationError.WriteFailed(1, transResult.exceptionOrNull()))
+            return@withLock Result.failure(AnimationError.WriteFailed(1, transResult.exceptionOrNull()))
         }
 
         val animResult = privilegedBridge.setAnimationScale(2, scales.animatorScale)
         if (animResult.isFailure) {
             rollback(origWin, origTrans, origAnim)
-            return Result.failure(AnimationError.WriteFailed(2, animResult.exceptionOrNull()))
+            return@withLock Result.failure(AnimationError.WriteFailed(2, animResult.exceptionOrNull()))
         }
 
         // 3. Read back and verify requested scales
@@ -101,10 +105,10 @@ class AnimationRepositoryImpl @Inject constructor(
             abs(readAnim - scales.animatorScale) > 0.01f
         ) {
             rollback(origWin, origTrans, origAnim)
-            return Result.failure(AnimationError.ReadBackFailed(scales.windowScale, readWin))
+            return@withLock Result.failure(AnimationError.ReadBackFailed(scales.windowScale, readWin))
         }
 
-        return Result.success(Unit)
+        return@withLock Result.success(Unit)
     }
 
     override suspend fun verifyAnimationWriteCapability(): Result<Unit> {

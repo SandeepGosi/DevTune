@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">DevTune</string>
+    <string name="tile_animation_label">DevTune Fast</string>
 </resources>
